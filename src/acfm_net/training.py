@@ -13,7 +13,14 @@ from sklearn.model_selection import GroupShuffleSplit
 
 from .model import FatigueModel
 
-FEATURE_COLUMNS = ("eye_closure", "mouth_opening", "brightness")
+FEATURE_COLUMNS = (
+    "eye_closure_rate",
+    "longest_eye_closure",
+    "mouth_opening_rate",
+    "mouth_opening_peak",
+    "brightness_mean",
+    "brightness_std",
+)
 
 
 def read_dataset(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -33,6 +40,8 @@ def read_dataset(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     groups = np.array([row["subject_id"].strip() for row in rows])
     if not all(labels) or not all(groups):
         raise ValueError("label and subject_id values cannot be empty")
+    if set(labels) != {"alert", "fatigued"}:
+        raise ValueError("labels must be exactly 'alert' and 'fatigued'")
     return features, labels, groups
 
 

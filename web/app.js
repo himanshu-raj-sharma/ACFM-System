@@ -15,12 +15,17 @@ start.addEventListener("click", async () => {
 analyze.addEventListener("click", async () => {
   canvas.width = camera.videoWidth;
   canvas.height = camera.videoHeight;
-  canvas.getContext("2d").drawImage(camera, 0, 0);
   result.textContent = "Analyzing...";
+  const frames = [];
+  for (let index = 0; index < 12; index += 1) {
+    canvas.getContext("2d").drawImage(camera, 0, 0);
+    frames.push(canvas.toDataURL("image/jpeg", 0.75));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   const response = await fetch("http://127.0.0.1:5000/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: canvas.toDataURL("image/jpeg", 0.85) })
+    body: JSON.stringify({ images: frames })
   });
   const data = await response.json();
   result.textContent = response.ok

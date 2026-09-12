@@ -44,23 +44,23 @@ class FatigueModel:
         model = load(path)
         if not hasattr(model, "predict_proba") or not hasattr(model, "n_features_in_"):
             raise ValueError("model artifact is not a compatible probability model")
-        if model.n_features_in_ != 3:
-            raise ValueError("model artifact must accept exactly three features")
+        if model.n_features_in_ != 6:
+            raise ValueError("model artifact must accept exactly six features")
         return cls(model=model)
 
     def fit(self, features: np.ndarray, labels: np.ndarray) -> None:
         if len(features) < 10:
             raise ValueError("at least 10 labelled samples are required")
-        if len(np.unique(labels)) != 2:
-            raise ValueError("training data must contain exactly two classes")
+        if set(np.unique(labels)) != {"alert", "fatigued"}:
+            raise ValueError("labels must be exactly 'alert' and 'fatigued'")
         self._model.fit(features, labels)
 
     def save(self, path: str) -> None:
         dump(self._model, path)
 
     def predict(self, features: np.ndarray) -> FatiguePrediction:
-        if features.shape != (3,):
-            raise ValueError("prediction requires exactly three feature values")
+        if features.shape != (6,):
+            raise ValueError("prediction requires exactly six feature values")
         probabilities = self._model.predict_proba(features.reshape(1, -1))[0]
         classes = list(self._model.classes_)
         fatigued_index = classes.index("fatigued") if "fatigued" in classes else 1
