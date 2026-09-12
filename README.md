@@ -9,6 +9,11 @@ The application refuses to start without a model trained from labelled data.
 This is intentional: an unvalidated synthetic model is not an acceptable
 production substitute.
 
+The repository is complete as a reproducible application and training
+pipeline, but it cannot include a trained model because model artifacts depend
+on the licensed dataset you download locally. The release checklist identifies
+the evidence required before claiming scientific or operational readiness.
+
 ## Requirements
 
 - Python 3.10 or newer
@@ -125,6 +130,15 @@ python -m ruff format --check .
 The same checks run automatically in GitHub Actions for pushes and pull
 requests.
 
+## Readiness and limitations
+
+Use [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) before any release
+and [docs/DATASET.md](docs/DATASET.md) for dataset licensing and privacy rules.
+The repository is application-complete, but scientific readiness depends on
+the locally supplied dataset, measured results, representative failure-case
+review, and an appropriate governance process. The code does not establish
+clinical validity.
+
 ## Project layout
 
 ```text
@@ -137,6 +151,7 @@ tests/              Automated tests
 server.js           Frontend development server
 pyproject.toml      Build, dependency, and tool configuration
 .github/workflows/  Continuous integration
+docs/               Dataset policy and release checklist
 ```
 
 ## License

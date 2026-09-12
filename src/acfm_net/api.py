@@ -25,7 +25,20 @@ def create_app(model_path: str | None = None) -> Flask:
 
     @app.get("/api/health")
     def health() -> tuple[object, int]:
-        return jsonify({"status": "ok", "service": "acfm-net"}), 200
+        return (
+            jsonify(
+                {
+                    "status": "ok",
+                    "service": "acfm-net",
+                    "model_loaded": True,
+                    "privacy": {
+                        "frames_persisted": False,
+                        "consent_required": True,
+                    },
+                }
+            ),
+            200,
+        )
 
     @app.after_request
     def add_security_headers(response):
@@ -70,5 +83,9 @@ def create_app(model_path: str | None = None) -> Flask:
     @app.errorhandler(413)
     def request_too_large(_error):
         return jsonify({"error": "request exceeds the 7 MB limit"}), 413
+
+    @app.errorhandler(400)
+    def bad_request(_error):
+        return jsonify({"error": "request was invalid"}), 400
 
     return app

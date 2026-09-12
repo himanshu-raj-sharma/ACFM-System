@@ -1,3 +1,6 @@
+from base64 import b64encode
+
+import cv2
 import numpy as np
 import pytest
 
@@ -31,6 +34,8 @@ def test_health_endpoint(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.json["status"] == "ok"
+    assert response.json["model_loaded"] is True
+    assert response.json["privacy"]["frames_persisted"] is False
     assert response.headers["Cache-Control"] == "no-store"
 
 
@@ -82,6 +87,24 @@ def test_analyze_preflight_allows_configured_origin(tmp_path) -> None:
 
     assert response.status_code == 204
     assert response.headers["Access-Control-Allow-Origin"] == ("http://127.0.0.1:3000")
+
+
+def test_analyze_accepts_a_consenting_frame_window(tmp_path) -> None:
+    client = _client(tmp_path)
+    image = np.zeros((120, 160, 3), dtype=np.uint8)
+    success, encoded = cv2.imencode(".jpg", image)
+    assert success
+    frame = "data:image/jpeg;base64," + b64encode(encoded).decode("ascii")
+
+    response = client.post(
+        "/api/analyze",
+        json={"consent": True, "images": [frame, frame]},
+        headers={"Origin": "http://127.0.0.1:3000"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["frames_analyzed"] == 2
+    assert "prediction" in response.json
 
 
 def test_dataset_requires_subject_ids(tmp_path) -> None:
