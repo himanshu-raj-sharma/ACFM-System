@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ACFM-Net Monitor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <h1>ACFM-Net</h1>
+    <p>Adaptive Cognitive and Fatigue Monitoring System</p>
+    <video id="camera" autoplay playsinline></video>
+    <canvas id="frame" hidden></canvas>
+    <div class="controls">
+      <button id="start">Start camera</button>
+      <button id="analyze" disabled>Analyze frame</button>
+    </div>
+    <section id="result" aria-live="polite">Camera is off.</section>
+    <small>Demo only. This is not a medical diagnosis or safety guarantee.</small>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

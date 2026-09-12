@@ -1,0 +1,7 @@
+:root { color-scheme: dark; font: 16px system-ui, sans-serif; }
+body { margin: 0; background: #101827; color: #e5e7eb; }
+main { max-width: 720px; margin: 3rem auto; padding: 0 1rem; }
+video { width: 100%; margin: 1rem 0; border-radius: 12px; background: #030712; }
+button { margin-right: .5rem; padding: .7rem 1rem; border: 0; border-radius: 8px; cursor: pointer; }
+#result { margin: 1rem 0; padding: 1rem; background: #1f2937; border-radius: 8px; }
+small { color: #9ca3af; }
