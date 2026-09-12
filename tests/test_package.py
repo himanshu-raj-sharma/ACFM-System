@@ -9,6 +9,7 @@ from acfm_net.api import create_app
 from acfm_net.dataset_report import summarize_manifest
 from acfm_net.edge_impulse import convert_labels
 from acfm_net.features import FrameFeatures
+from acfm_net.labeling import create_template
 from acfm_net.model import FatigueModel
 from acfm_net.temporal import aggregate
 from acfm_net.training import evaluate, read_dataset
@@ -210,3 +211,19 @@ def test_dataset_report_counts_annotation_prevalence(tmp_path) -> None:
     assert report["subjects"] == ["alice", "bob"]
     assert report["annotation_counts"]["menguap"] == 1
     assert report["image_prevalence"]["has_closed_eye"] == 0.5
+
+
+def test_labeling_template_has_blank_direct_labels(tmp_path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "image_path,source_path,split,subject_id\n"
+        "training/a.jpg,training/a.jpg,training,alice\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "labels.csv"
+
+    assert create_template(manifest, output) == 1
+    assert output.read_text(encoding="utf-8").splitlines() == [
+        "image_path,source_path,split,subject_id,label,label_notes",
+        "training/a.jpg,training/a.jpg,training,alice,,",
+    ]
