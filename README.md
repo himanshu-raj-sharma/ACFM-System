@@ -96,9 +96,14 @@ npm start
 
 If the model is stored elsewhere, set `ACFM_MODEL_PATH` before starting the
 backend. The backend will fail fast if the artifact is missing or invalid.
+For deployment, set `ACFM_ALLOWED_ORIGIN` to the exact frontend origin; multiple
+origins may be comma-separated. The API requires explicit consent, accepts only
+the configured origin, limits request size, and does not write submitted
+frames to disk.
 
 Open <http://127.0.0.1:3000>, allow camera access, and select **Analyze frame**.
-The frontend captures a short frame window and sends it to `POST /api/analyze`;
+The frontend captures a short frame window after consent and sends it to
+`POST /api/analyze`;
 the backend also exposes `GET /api/health`.
 
 For a quick package check:
