@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from dataclasses import asdict
 
 import cv2
@@ -13,6 +14,8 @@ from .model import FatigueModel
 
 
 class MonitoringService:
+    MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
     def __init__(self, model_path: str) -> None:
         self._extractor = FaceFeatureExtractor()
         self._model = FatigueModel.load(model_path)
@@ -34,8 +37,10 @@ class MonitoringService:
         payload = encoded_image.split(",", 1)[-1]
         try:
             raw = base64.b64decode(payload, validate=True)
-        except (ValueError, base64.binascii.Error) as error:
+        except (ValueError, binascii.Error) as error:
             raise ValueError("image must be valid base64 data") from error
+        if len(raw) > MonitoringService.MAX_IMAGE_BYTES:
+            raise ValueError("image exceeds the 5 MB limit")
         image = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError("image could not be decoded")
