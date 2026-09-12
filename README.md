@@ -111,6 +111,30 @@ and the proportion of images containing a closed-eye or yawning annotation.
 It does not calculate fatigue accuracy because this dataset has no direct
 `alert`/`fatigued` ground truth.
 
+### Collect direct alertness labels
+
+To train the fatigue classifier, create a labeling template:
+
+```powershell
+python -m acfm_net.labeling `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\alertness_labels.csv
+```
+
+Open `data\alertness_labels.csv` in a spreadsheet. Fill every `label` cell
+with exactly `alert` or `fatigued`, and record the labeling rationale in
+`label_notes`. Judge the complete short frame window, not an isolated blink:
+`fatigued` should require an observable sustained drowsiness/fatigue state,
+while `alert` should mean the person is attentive. Use at least two
+independent labelers where possible, resolve disagreements before training,
+and keep all rows for one subject in the same evaluation fold.
+
+Do not infer the direct label mechanically from `mata_terpejam` or `menguap`;
+those annotations may be useful evidence for a human labeler but are not
+ground truth. Before training, ensure both `alert` and `fatigued` are present
+for at least five subjects and convert the completed labels into the
+feature CSV required by `acfm_net.training`.
+
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `

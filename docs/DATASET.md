@@ -48,6 +48,22 @@ python -m acfm_net.dataset_report `
 The report is suitable for documenting dataset coverage and annotation
 prevalence. It must not be presented as model accuracy or clinical validation.
 
+## Direct alertness labeling
+
+Generate a blank labeling template from the manifest:
+
+```powershell
+python -m acfm_net.labeling `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\alertness_labels.csv
+```
+
+Fill `label` with exactly `alert` or `fatigued` after reviewing the complete
+short window and put the rationale in `label_notes`. Do not derive this field
+automatically from an eye or yawning annotation. Prefer two independent
+labelers, document disagreements, and require at least five subjects with
+both classes before using the grouped fatigue evaluation.
+
 ## Required local layout
 
 ```text
