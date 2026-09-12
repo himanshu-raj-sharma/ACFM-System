@@ -49,11 +49,24 @@ class FatigueModel:
         return cls(model=model)
 
     def fit(self, features: np.ndarray, labels: np.ndarray) -> None:
-        if len(features) < 10:
-            raise ValueError("at least 10 labelled samples are required")
+        if len(features) < 4:
+            raise ValueError("at least four labelled samples are required")
         if set(np.unique(labels)) != {"alert", "fatigued"}:
             raise ValueError("labels must be exactly 'alert' and 'fatigued'")
-        self._model.fit(features, labels)
+        counts = {label: int(np.sum(labels == label)) for label in np.unique(labels)}
+        target_count = max(counts.values())
+        rng = np.random.default_rng(42)
+        balanced_indices = np.concatenate(
+            [
+                rng.choice(
+                    np.flatnonzero(labels == label),
+                    size=target_count,
+                    replace=True,
+                )
+                for label in sorted(counts)
+            ],
+        )
+        self._model.fit(features[balanced_indices], labels[balanced_indices])
 
     def save(self, path: str) -> None:
         dump(self._model, path)
