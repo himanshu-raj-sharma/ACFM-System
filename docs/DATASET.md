@@ -37,6 +37,17 @@ original filename. These are observable annotation targets, not direct
 `alert`/`fatigued` labels; do not train the fatigue classifier from this
 manifest without an explicit, validated label-mapping protocol.
 
+Create an auditable summary without loading the images:
+
+```powershell
+python -m acfm_net.dataset_report `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\edge_impulse_report.json
+```
+
+The report is suitable for documenting dataset coverage and annotation
+prevalence. It must not be presented as model accuracy or clinical validation.
+
 ## Required local layout
 
 ```text
