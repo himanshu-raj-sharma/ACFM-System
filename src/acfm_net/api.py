@@ -35,11 +35,17 @@ def create_app(model_path: str | None = None) -> Flask:
     @app.post("/api/analyze")
     def analyze() -> tuple[object, int]:
         body = request.get_json(silent=True) or {}
-        image = body.get("image")
-        if not isinstance(image, str) or not image:
-            return jsonify({"error": "JSON field 'image' is required"}), 400
+        images = body.get("images")
+        if images is None and isinstance(body.get("image"), str):
+            images = [body["image"]]
+        if (
+            not isinstance(images, list)
+            or not images
+            or not all(isinstance(image, str) and image for image in images)
+        ):
+            return jsonify({"error": "JSON field 'images' must contain frames"}), 400
         try:
-            return jsonify(service.analyze(image)), 200
+            return jsonify(service.analyze(images)), 200
         except ValueError as error:
             return jsonify({"error": str(error)}), 400
 

@@ -11,6 +11,7 @@ import numpy as np
 
 from .features import FaceFeatureExtractor
 from .model import FatigueModel
+from .temporal import aggregate
 
 
 class MonitoringService:
@@ -20,15 +21,21 @@ class MonitoringService:
         self._extractor = FaceFeatureExtractor()
         self._model = FatigueModel.load(model_path)
 
-    def analyze(self, encoded_image: str) -> dict[str, object]:
-        image = self._decode_image(encoded_image)
-        features = self._extractor.extract(image)
+    def analyze(self, encoded_images: list[str]) -> dict[str, object]:
+        if not encoded_images or len(encoded_images) > 30:
+            raise ValueError("provide between 1 and 30 frames")
+        frames = [
+            self._extractor.extract(self._decode_image(encoded_image))
+            for encoded_image in encoded_images
+        ]
+        features = aggregate(frames)
         prediction = self._model.predict(features.vector())
         return {
             "prediction": asdict(prediction),
             "features": asdict(features),
+            "frames_analyzed": len(frames),
             "disclaimer": (
-                "Demo signal only; not a medical diagnosis or safety guarantee."
+                "Assistive estimate only; not a medical diagnosis or safety guarantee."
             ),
         }
 
