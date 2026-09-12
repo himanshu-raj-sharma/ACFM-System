@@ -17,6 +17,7 @@ the evidence required before claiming scientific or operational readiness.
 ## Requirements
 
 - Python 3.10 or newer
+- OpenCV 4.x (installed automatically by the project dependencies)
 
 ## Installation
 
@@ -31,6 +32,13 @@ source .venv/bin/activate
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install --editable ".[dev]"
+```
+
+If the environment was installed before the OpenCV version constraint was
+added, reinstall the compatible build:
+
+```powershell
+python -m pip install --force-reinstall "opencv-python-headless>=4.9,<5"
 ```
 
 ## Train a model from labelled data
