@@ -16,6 +16,27 @@ Other datasets must not be added until their provider explicitly permits the
 intended use. In particular, do not publish raw videos, face crops, screenshots,
 landmarks, embeddings, or other biometric derivatives from restricted datasets.
 
+## Edge Impulse annotations
+
+The supported Mendeley download contains `modelling/info.labels`, a JSON
+document with records under `files`. Each record includes `name`, `path`,
+`category`, and `boundingBoxes`. Convert it locally with:
+
+```powershell
+python -m acfm_net.edge_impulse `
+  --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\edge_impulse_manifest.csv `
+  --metadata data\edge_impulse_manifest.json
+```
+
+The converter preserves `mata_terbuka` (open eyes), `mata_terpejam` (closed
+eyes), `tidak_menguap` (not yawning), and `menguap` (yawning). It also keeps
+the source training/testing split and derives a subject identifier from the
+original filename. These are observable annotation targets, not direct
+`alert`/`fatigued` labels; do not train the fatigue classifier from this
+manifest without an explicit, validated label-mapping protocol.
+
 ## Required local layout
 
 ```text

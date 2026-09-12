@@ -70,6 +70,26 @@ The directory labels are project labels and must be mapped to the source
 dataset's original labels. Do not silently equate “closed eyes” with
 clinically validated fatigue. Train and evaluate the model:
 
+### Edge Impulse dataset conversion
+
+The recommended Mendeley dataset is an Edge Impulse export. Its annotations
+are stored in `modelling/info.labels`, while the extracted images are stored
+under the `training` and `testing` directories. Convert them to an auditable
+manifest without changing the original labels:
+
+```powershell
+python -m acfm_net.edge_impulse `
+  --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\edge_impulse_manifest.csv `
+  --metadata data\edge_impulse_manifest.json
+```
+
+The manifest records the source split, subject identifier, original label
+counts, and matched local image path. It is an eye/yawning annotation manifest,
+not a fatigue-training dataset. A separate, documented alertness label source
+is still required before running the `alert`/`fatigued` training command.
+
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `
