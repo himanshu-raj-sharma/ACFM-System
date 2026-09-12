@@ -6,6 +6,7 @@ import pytest
 
 from acfm_net import __version__
 from acfm_net.api import create_app
+from acfm_net.dataset_report import summarize_manifest
 from acfm_net.edge_impulse import convert_labels
 from acfm_net.features import FrameFeatures
 from acfm_net.model import FatigueModel
@@ -190,3 +191,22 @@ def test_edge_impulse_manifest_preserves_labels_and_split(tmp_path) -> None:
     assert "not direct alert/fatigued ground truth" in metadata.read_text(
         encoding="utf-8",
     )
+
+
+def test_dataset_report_counts_annotation_prevalence(tmp_path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "split,subject_id,open_eye_count,closed_eye_count,"
+        "not_yawning_count,yawning_count\n"
+        "training,alice,2,0,1,0\n"
+        "testing,bob,1,1,0,1\n",
+        encoding="utf-8",
+    )
+
+    report = summarize_manifest(manifest)
+
+    assert report["rows"] == 2
+    assert report["splits"] == {"training": 1, "testing": 1}
+    assert report["subjects"] == ["alice", "bob"]
+    assert report["annotation_counts"]["menguap"] == 1
+    assert report["image_prevalence"]["has_closed_eye"] == 0.5

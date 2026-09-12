@@ -98,6 +98,19 @@ counts, and matched local image path. It is an eye/yawning annotation manifest,
 not a fatigue-training dataset. A separate, documented alertness label source
 is still required before running the `alert`/`fatigued` training command.
 
+Generate a compact report for a presentation or experiment record:
+
+```powershell
+python -m acfm_net.dataset_report `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\edge_impulse_report.json
+```
+
+The report contains row counts, split and subject coverage, annotation totals,
+and the proportion of images containing a closed-eye or yawning annotation.
+It does not calculate fatigue accuracy because this dataset has no direct
+`alert`/`fatigued` ground truth.
+
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `
