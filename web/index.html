@@ -13,8 +13,13 @@
     <video id="camera" autoplay playsinline></video>
     <canvas id="frame" hidden></canvas>
     <div class="controls">
-      <button id="start">Start camera</button>
-      <button id="analyze" disabled>Analyze frame</button>
+      <label><input id="consent" type="checkbox">
+        I consent to temporary camera-frame analysis. Frames are not stored.</label>
+      <div class="controls">
+        <button id="start">Start camera</button>
+        <button id="stop" disabled>Stop camera</button>
+        <button id="analyze" disabled>Analyze window</button>
+      </div>
     </div>
     <section id="result" aria-live="polite">Camera is off.</section>
     <small>Frame-window estimate only. This is not a medical diagnosis or safety guarantee.</small>

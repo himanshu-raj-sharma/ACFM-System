@@ -31,15 +31,57 @@ def test_health_endpoint(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.json["status"] == "ok"
+    assert response.headers["Cache-Control"] == "no-store"
 
 
 def test_analyze_requires_an_image(tmp_path) -> None:
     client = _client(tmp_path)
 
-    response = client.post("/api/analyze", json={})
+    response = client.post(
+        "/api/analyze",
+        json={"consent": True},
+        headers={"Origin": "http://127.0.0.1:3000"},
+    )
 
     assert response.status_code == 400
     assert "image" in response.json["error"]
+
+
+def test_analyze_requires_consent(tmp_path) -> None:
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/analyze",
+        json={"images": ["not-used"]},
+        headers={"Origin": "http://127.0.0.1:3000"},
+    )
+
+    assert response.status_code == 400
+    assert "consent" in response.json["error"]
+
+
+def test_analyze_rejects_unknown_origin(tmp_path) -> None:
+    client = _client(tmp_path)
+
+    response = client.post(
+        "/api/analyze",
+        json={"consent": True, "images": ["not-used"]},
+        headers={"Origin": "https://untrusted.example"},
+    )
+
+    assert response.status_code == 403
+
+
+def test_analyze_preflight_allows_configured_origin(tmp_path) -> None:
+    client = _client(tmp_path)
+
+    response = client.options(
+        "/api/analyze",
+        headers={"Origin": "http://127.0.0.1:3000"},
+    )
+
+    assert response.status_code == 204
+    assert response.headers["Access-Control-Allow-Origin"] == ("http://127.0.0.1:3000")
 
 
 def test_dataset_requires_subject_ids(tmp_path) -> None:
