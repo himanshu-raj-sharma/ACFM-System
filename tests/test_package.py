@@ -6,6 +6,7 @@ import pytest
 
 from acfm_net import __version__
 from acfm_net.api import create_app
+from acfm_net.edge_impulse import convert_labels
 from acfm_net.features import FrameFeatures
 from acfm_net.model import FatigueModel
 from acfm_net.temporal import aggregate
@@ -161,3 +162,31 @@ def test_evaluation_keeps_subjects_in_separate_folds() -> None:
 
     assert len(report["folds"]) == 5
     assert report["confusion_matrix"] == [[10, 0], [0, 10]]
+
+
+def test_edge_impulse_manifest_preserves_labels_and_split(tmp_path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    image = images / "training" / "frame_001_alice.jpg"
+    image.parent.mkdir()
+    image.write_bytes(b"image")
+    labels = tmp_path / "info.labels"
+    labels.write_text(
+        '{"version": 1, "files": [{"path": '
+        '"training/frame_001_alice.jpg.ingestion-abc.jpg", '
+        '"name": "frame_001_alice.jpg", "category": "training", '
+        '"boundingBoxes": [{"label": "mata_terbuka"}, '
+        '{"label": "menguap"}]}]}',
+        encoding="utf-8",
+    )
+    output = tmp_path / "manifest.csv"
+    metadata = tmp_path / "manifest.json"
+
+    assert convert_labels(labels, images, output, metadata) == 1
+    row = output.read_text(encoding="utf-8").splitlines()[1].split(",")
+    assert row[2] == "training"
+    assert row[3] == "alice"
+    assert row[4:8] == ["1", "0", "0", "1"]
+    assert "not direct alert/fatigued ground truth" in metadata.read_text(
+        encoding="utf-8",
+    )
