@@ -32,21 +32,24 @@ python -m pip install --editable ".[dev]"
 Prepare a CSV with these columns:
 
 ```text
-eye_closure,mouth_opening,brightness,label
-0.0,0.1,0.8,alert
-1.0,0.7,0.4,fatigued
+eye_closure,mouth_opening,brightness,label,subject_id
+0.0,0.1,0.8,alert,subject-001
+1.0,0.7,0.4,fatigued,subject-002
 ```
 
 The labels and features must come from an approved, documented dataset. Train
 and evaluate the model:
 
 ```bash
-python -m acfm_net.training --data data/features.csv --output models/fatigue.joblib
+python -m acfm_net.training --data data/features.csv `
+  --output models/fatigue.joblib `
+  --metadata models/fatigue.metadata.json
 ```
 
-Review the printed hold-out classification report before deployment. Keep the
-dataset, preprocessing, model artifact, metrics, and dataset license together
-for reproducibility.
+The evaluator splits by `subject_id`, not by frame, to prevent leakage between
+the training and hold-out sets. Review the printed hold-out classification
+report before deployment. Keep the dataset, preprocessing, model artifact,
+metrics, and dataset license together for reproducibility.
 
 ## Run the complete system
 

@@ -41,7 +41,12 @@ class FatigueModel:
 
     @classmethod
     def load(cls, path: str) -> FatigueModel:
-        return cls(model=load(path))
+        model = load(path)
+        if not hasattr(model, "predict_proba") or not hasattr(model, "n_features_in_"):
+            raise ValueError("model artifact is not a compatible probability model")
+        if model.n_features_in_ != 3:
+            raise ValueError("model artifact must accept exactly three features")
+        return cls(model=model)
 
     def fit(self, features: np.ndarray, labels: np.ndarray) -> None:
         if len(features) < 10:
@@ -54,8 +59,12 @@ class FatigueModel:
         dump(self._model, path)
 
     def predict(self, features: np.ndarray) -> FatiguePrediction:
+        if features.shape != (3,):
+            raise ValueError("prediction requires exactly three feature values")
         probabilities = self._model.predict_proba(features.reshape(1, -1))[0]
-        score = float(probabilities[1])
+        classes = list(self._model.classes_)
+        fatigued_index = classes.index("fatigued") if "fatigued" in classes else 1
+        score = float(probabilities[fatigued_index])
         if score >= 0.65:
             return FatiguePrediction(
                 "fatigued",
