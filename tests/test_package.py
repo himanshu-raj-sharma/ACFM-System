@@ -6,7 +6,7 @@ from acfm_net.api import create_app
 from acfm_net.features import FrameFeatures
 from acfm_net.model import FatigueModel
 from acfm_net.temporal import aggregate
-from acfm_net.training import read_dataset
+from acfm_net.training import evaluate, read_dataset
 
 
 def test_version_is_available() -> None:
@@ -82,3 +82,17 @@ def test_temporal_features_capture_longest_closed_run() -> None:
     assert features.longest_eye_closure == 0.5
     assert features.mouth_opening_rate == 0.5
     assert features.mouth_opening_peak == pytest.approx(0.8)
+
+
+def test_evaluation_keeps_subjects_in_separate_folds() -> None:
+    features = np.array(
+        [[0.0] * 6, [1.0] * 6] * 10,
+        dtype=np.float32,
+    )
+    labels = np.array(["alert", "fatigued"] * 10)
+    groups = np.repeat(list("abcdefghij"), 2)
+
+    report = evaluate(features, labels, groups, folds=5)
+
+    assert len(report["folds"]) == 5
+    assert report["confusion_matrix"] == [[10, 0], [0, 10]]

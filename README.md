@@ -68,13 +68,17 @@ clinically validated fatigue. Train and evaluate the model:
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `
-  --metadata models/fatigue.metadata.json
+  --metadata models/fatigue.metadata.json `
+  --folds 5
 ```
 
-The evaluator splits by `subject_id`, not by frame, to prevent leakage between
-the training and hold-out sets. Review the printed hold-out classification
-report before deployment. Keep the dataset, preprocessing, model artifact,
-metrics, and dataset license together for reproducibility.
+The evaluator uses five subject-disjoint folds, not a random frame split, to
+prevent identity leakage. It writes classification metrics, balanced accuracy,
+ROC-AUC, confusion matrix, and fold subject IDs to the metadata report. Review
+these metrics and class-specific recall before deployment; no accuracy target
+is assumed to be safe without domain validation. Keep the dataset,
+preprocessing, model artifact, metrics, and dataset license together for
+reproducibility.
 
 ## Run the complete system
 
