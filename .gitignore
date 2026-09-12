@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+build/
+dist/
+
+# Local configuration and editor files
+.env
+.env.*
+.vscode/
+.idea/
+
+# Data and experiment outputs
+data/
+outputs/
+checkpoints/
