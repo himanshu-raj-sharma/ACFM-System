@@ -11,6 +11,7 @@ from acfm_net.edge_impulse import convert_labels
 from acfm_net.features import FrameFeatures
 from acfm_net.labeling import create_template
 from acfm_net.model import FatigueModel
+from acfm_net.review_export import create_review_page
 from acfm_net.temporal import aggregate
 from acfm_net.training import evaluate, read_dataset
 
@@ -227,3 +228,23 @@ def test_labeling_template_has_blank_direct_labels(tmp_path) -> None:
         "image_path,source_path,split,subject_id,label,label_notes",
         "training/a.jpg,training/a.jpg,training,alice,,",
     ]
+
+
+def test_review_export_creates_local_page_and_csv(tmp_path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    (images / "a.jpg").write_bytes(b"image")
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "image_path,source_path,split,subject_id,open_eye_count,"
+        "closed_eye_count,not_yawning_count,yawning_count\n"
+        "a.jpg,a.jpg,training,alice,1,0,1,0\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "review"
+
+    assert create_review_page(manifest, images, output) == 1
+    assert (output / "index.html").exists()
+    assert "image_path,source_path,split,subject_id,label,label_notes" in (
+        output / "alertness_labels.csv"
+    ).read_text(encoding="utf-8")

@@ -64,6 +64,19 @@ automatically from an eye or yawning annotation. Prefer two independent
 labelers, document disagreements, and require at least five subjects with
 both classes before using the grouped fatigue evaluation.
 
+For efficient local review, generate a browser page:
+
+```powershell
+python -m acfm_net.review_export `
+  --manifest data\edge_impulse_manifest.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\review
+```
+
+Open `data\review\index.html`, review each image, choose a label, add notes,
+and download the completed CSV. The page uses local `file://` image URLs and
+does not upload images.
+
 ## Required local layout
 
 ```text

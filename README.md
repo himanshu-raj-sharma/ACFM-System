@@ -135,6 +135,20 @@ ground truth. Before training, ensure both `alert` and `fatigued` are present
 for at least five subjects and convert the completed labels into the
 feature CSV required by `acfm_net.training`.
 
+For visual review, generate a local browser page with the original images and
+annotation counts:
+
+```powershell
+python -m acfm_net.review_export `
+  --manifest data\edge_impulse_manifest.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\review
+```
+
+Open `data\review\index.html` in a browser. Select a label and add notes for
+each image, then use **Download completed labels CSV**. Copy the downloaded
+`alertness_labels.csv` over `data\alertness_labels.csv` after reviewing it.
+
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `
