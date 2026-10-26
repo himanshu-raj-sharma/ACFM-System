@@ -16,6 +16,67 @@ Other datasets must not be added until their provider explicitly permits the
 intended use. In particular, do not publish raw videos, face crops, screenshots,
 landmarks, embeddings, or other biometric derivatives from restricted datasets.
 
+## Edge Impulse annotations
+
+The supported Mendeley download contains `modelling/info.labels`, a JSON
+document with records under `files`. Each record includes `name`, `path`,
+`category`, and `boundingBoxes`. Convert it locally with:
+
+```powershell
+python -m acfm_net.edge_impulse `
+  --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\edge_impulse_manifest.csv `
+  --metadata data\edge_impulse_manifest.json
+```
+
+The converter preserves `mata_terbuka` (open eyes), `mata_terpejam` (closed
+eyes), `tidak_menguap` (not yawning), and `menguap` (yawning). It also keeps
+the source training/testing split and derives a subject identifier from the
+original filename. These are observable annotation targets, not direct
+`alert`/`fatigued` labels; do not train the fatigue classifier from this
+manifest without an explicit, validated label-mapping protocol.
+
+Create an auditable summary without loading the images:
+
+```powershell
+python -m acfm_net.dataset_report `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\edge_impulse_report.json
+```
+
+The report is suitable for documenting dataset coverage and annotation
+prevalence. It must not be presented as model accuracy or clinical validation.
+
+## Direct alertness labeling
+
+Generate a blank labeling template from the manifest:
+
+```powershell
+python -m acfm_net.labeling `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\alertness_labels.csv
+```
+
+Fill `label` with exactly `alert` or `fatigued` after reviewing the complete
+short window and put the rationale in `label_notes`. Do not derive this field
+automatically from an eye or yawning annotation. Prefer two independent
+labelers, document disagreements, and require at least five subjects with
+both classes before using the grouped fatigue evaluation.
+
+For efficient local review, generate a browser page:
+
+```powershell
+python -m acfm_net.review_export `
+  --manifest data\edge_impulse_manifest.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\review
+```
+
+Open `data\review\index.html`, review each image, choose a label, add notes,
+and download the completed CSV. The page uses local `file://` image URLs and
+does not upload images.
+
 ## Required local layout
 
 ```text

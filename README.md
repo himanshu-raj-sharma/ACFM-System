@@ -17,6 +17,7 @@ the evidence required before claiming scientific or operational readiness.
 ## Requirements
 
 - Python 3.10 or newer
+- OpenCV 4.x (installed automatically by the project dependencies)
 
 ## Installation
 
@@ -31,6 +32,13 @@ source .venv/bin/activate
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install --editable ".[dev]"
+```
+
+If the environment was installed before the OpenCV version constraint was
+added, reinstall the compatible build:
+
+```powershell
+python -m pip install --force-reinstall "opencv-python-headless>=4.9,<5"
 ```
 
 ## Train a model from labelled data
@@ -69,6 +77,77 @@ eye_closure_rate,longest_eye_closure,mouth_opening_rate,mouth_opening_peak,brigh
 The directory labels are project labels and must be mapped to the source
 dataset's original labels. Do not silently equate “closed eyes” with
 clinically validated fatigue. Train and evaluate the model:
+
+### Edge Impulse dataset conversion
+
+The recommended Mendeley dataset is an Edge Impulse export. Its annotations
+are stored in `modelling/info.labels`, while the extracted images are stored
+under the `training` and `testing` directories. Convert them to an auditable
+manifest without changing the original labels:
+
+```powershell
+python -m acfm_net.edge_impulse `
+  --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\edge_impulse_manifest.csv `
+  --metadata data\edge_impulse_manifest.json
+```
+
+The manifest records the source split, subject identifier, original label
+counts, and matched local image path. It is an eye/yawning annotation manifest,
+not a fatigue-training dataset. A separate, documented alertness label source
+is still required before running the `alert`/`fatigued` training command.
+
+Generate a compact report for a presentation or experiment record:
+
+```powershell
+python -m acfm_net.dataset_report `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\edge_impulse_report.json
+```
+
+The report contains row counts, split and subject coverage, annotation totals,
+and the proportion of images containing a closed-eye or yawning annotation.
+It does not calculate fatigue accuracy because this dataset has no direct
+`alert`/`fatigued` ground truth.
+
+### Collect direct alertness labels
+
+To train the fatigue classifier, create a labeling template:
+
+```powershell
+python -m acfm_net.labeling `
+  --manifest data\edge_impulse_manifest.csv `
+  --output data\alertness_labels.csv
+```
+
+Open `data\alertness_labels.csv` in a spreadsheet. Fill every `label` cell
+with exactly `alert` or `fatigued`, and record the labeling rationale in
+`label_notes`. Judge the complete short frame window, not an isolated blink:
+`fatigued` should require an observable sustained drowsiness/fatigue state,
+while `alert` should mean the person is attentive. Use at least two
+independent labelers where possible, resolve disagreements before training,
+and keep all rows for one subject in the same evaluation fold.
+
+Do not infer the direct label mechanically from `mata_terpejam` or `menguap`;
+those annotations may be useful evidence for a human labeler but are not
+ground truth. Before training, ensure both `alert` and `fatigued` are present
+for at least five subjects and convert the completed labels into the
+feature CSV required by `acfm_net.training`.
+
+For visual review, generate a local browser page with the original images and
+annotation counts:
+
+```powershell
+python -m acfm_net.review_export `
+  --manifest data\edge_impulse_manifest.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\review
+```
+
+Open `data\review\index.html` in a browser. Select a label and add notes for
+each image, then use **Download completed labels CSV**. Copy the downloaded
+`alertness_labels.csv` over `data\alertness_labels.csv` after reviewing it.
 
 ```bash
 python -m acfm_net.training --data data/features.csv `

@@ -6,8 +6,12 @@ import pytest
 
 from acfm_net import __version__
 from acfm_net.api import create_app
+from acfm_net.dataset_report import summarize_manifest
+from acfm_net.edge_impulse import convert_labels
 from acfm_net.features import FrameFeatures
+from acfm_net.labeling import create_template
 from acfm_net.model import FatigueModel
+from acfm_net.review_export import create_review_page
 from acfm_net.temporal import aggregate
 from acfm_net.training import evaluate, read_dataset
 
@@ -161,3 +165,86 @@ def test_evaluation_keeps_subjects_in_separate_folds() -> None:
 
     assert len(report["folds"]) == 5
     assert report["confusion_matrix"] == [[10, 0], [0, 10]]
+
+
+def test_edge_impulse_manifest_preserves_labels_and_split(tmp_path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    image = images / "training" / "frame_001_alice.jpg"
+    image.parent.mkdir()
+    image.write_bytes(b"image")
+    labels = tmp_path / "info.labels"
+    labels.write_text(
+        '{"version": 1, "files": [{"path": '
+        '"training/frame_001_alice.jpg.ingestion-abc.jpg", '
+        '"name": "frame_001_alice.jpg", "category": "training", '
+        '"boundingBoxes": [{"label": "mata_terbuka"}, '
+        '{"label": "menguap"}]}]}',
+        encoding="utf-8",
+    )
+    output = tmp_path / "manifest.csv"
+    metadata = tmp_path / "manifest.json"
+
+    assert convert_labels(labels, images, output, metadata) == 1
+    row = output.read_text(encoding="utf-8").splitlines()[1].split(",")
+    assert row[2] == "training"
+    assert row[3] == "alice"
+    assert row[4:8] == ["1", "0", "0", "1"]
+    assert "not direct alert/fatigued ground truth" in metadata.read_text(
+        encoding="utf-8",
+    )
+
+
+def test_dataset_report_counts_annotation_prevalence(tmp_path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "split,subject_id,open_eye_count,closed_eye_count,"
+        "not_yawning_count,yawning_count\n"
+        "training,alice,2,0,1,0\n"
+        "testing,bob,1,1,0,1\n",
+        encoding="utf-8",
+    )
+
+    report = summarize_manifest(manifest)
+
+    assert report["rows"] == 2
+    assert report["splits"] == {"training": 1, "testing": 1}
+    assert report["subjects"] == ["alice", "bob"]
+    assert report["annotation_counts"]["menguap"] == 1
+    assert report["image_prevalence"]["has_closed_eye"] == 0.5
+
+
+def test_labeling_template_has_blank_direct_labels(tmp_path) -> None:
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "image_path,source_path,split,subject_id\n"
+        "training/a.jpg,training/a.jpg,training,alice\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "labels.csv"
+
+    assert create_template(manifest, output) == 1
+    assert output.read_text(encoding="utf-8").splitlines() == [
+        "image_path,source_path,split,subject_id,label,label_notes",
+        "training/a.jpg,training/a.jpg,training,alice,,",
+    ]
+
+
+def test_review_export_creates_local_page_and_csv(tmp_path) -> None:
+    images = tmp_path / "images"
+    images.mkdir()
+    (images / "a.jpg").write_bytes(b"image")
+    manifest = tmp_path / "manifest.csv"
+    manifest.write_text(
+        "image_path,source_path,split,subject_id,open_eye_count,"
+        "closed_eye_count,not_yawning_count,yawning_count\n"
+        "a.jpg,a.jpg,training,alice,1,0,1,0\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "review"
+
+    assert create_review_page(manifest, images, output) == 1
+    assert (output / "index.html").exists()
+    assert "image_path,source_path,split,subject_id,label,label_notes" in (
+        output / "alertness_labels.csv"
+    ).read_text(encoding="utf-8")
