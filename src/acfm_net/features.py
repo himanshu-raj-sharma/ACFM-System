@@ -33,6 +33,11 @@ class FaceFeatureExtractor:
             cascade_path + "haarcascade_frontalface_default.xml",
         )
         self._eyes = self._classifier(cascade_path + "haarcascade_eye.xml")
+        if self._faces is None or self._eyes is None:
+            raise RuntimeError(
+                "OpenCV Haar cascade files are unavailable; install "
+                "opencv-python-headless>=4.9,<5",
+            )
 
     @staticmethod
     def _classifier(path: str):
@@ -46,8 +51,6 @@ class FaceFeatureExtractor:
     def extract(self, image: np.ndarray) -> FrameFeatures:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         brightness = float(np.mean(gray) / 255.0)
-        if self._faces is None or self._eyes is None:
-            return FrameFeatures(False, 0.0, 0.0, brightness)
         faces = self._faces.detectMultiScale(
             gray,
             scaleFactor=1.1,
@@ -55,7 +58,7 @@ class FaceFeatureExtractor:
             minSize=(80, 80),
         )
         if len(faces) == 0:
-            return FrameFeatures(False, 1.0, 0.0, brightness)
+            return FrameFeatures(False, 0.0, 0.0, brightness)
 
         x, y, width, height = max(faces, key=lambda face: face[2] * face[3])
         face_gray = gray[y : y + height, x : x + width]

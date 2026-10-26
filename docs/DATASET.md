@@ -77,6 +77,16 @@ Open `data\review\index.html`, review each image, choose a label, add notes,
 and download the completed CSV. The page uses local `file://` image URLs and
 does not upload images.
 
+After restoring the source images, prepare the reviewed labels for feature
+extraction:
+
+```powershell
+python -m acfm_net.prepare_dataset `
+  --labels data\alertness_labels.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\raw
+```
+
 ## Required local layout
 
 ```text
@@ -95,7 +105,7 @@ Before using a model outside a local research environment, retain:
 - Dataset source, version, license, and label mapping.
 - Subject-disjoint cross-validation report.
 - Per-class recall, balanced accuracy, ROC-AUC, and confusion matrix.
-- Model artifact hash and feature schema.
+- Dataset and model SHA-256 hashes and feature schema.
 - Known failure cases across lighting, pose, eyewear, skin tone, and camera type.
 - Consent, retention, deletion, and incident-response procedures.
 

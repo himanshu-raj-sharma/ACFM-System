@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: acfm-net
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: ACFM_MODEL_URL
+        sync: false
+      - key: ACFM_MODEL_SHA256
+        sync: false

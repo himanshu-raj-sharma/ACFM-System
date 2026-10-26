@@ -3,16 +3,23 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 from .service import MonitoringService
 
 
-def create_app(model_path: str | None = None) -> Flask:
+def create_app(
+    model_path: str | None = None,
+    web_dir: str | None = None,
+) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 7 * 1024 * 1024
-    allowed_origin = os.environ.get("ACFM_ALLOWED_ORIGIN", "http://127.0.0.1:3000")
+    allowed_origin = os.environ.get(
+        "ACFM_ALLOWED_ORIGIN",
+        "http://127.0.0.1:3000,http://localhost:3000",
+    )
     allowed_origins = {
         origin.strip() for origin in allowed_origin.split(",") if origin.strip()
     }
@@ -22,6 +29,13 @@ def create_app(model_path: str | None = None) -> Flask:
             "ACFM_MODEL_PATH is required. Train a labelled model before starting.",
         )
     service = MonitoringService(configured_path)
+    frontend_root = Path(web_dir or os.environ.get("ACFM_WEB_DIR", "web")).resolve()
+
+    def origin_is_allowed() -> bool:
+        origin = request.headers.get("Origin")
+        if origin in allowed_origins:
+            return True
+        return origin == request.host_url.rstrip("/")
 
     @app.get("/api/health")
     def health() -> tuple[object, int]:
@@ -43,7 +57,7 @@ def create_app(model_path: str | None = None) -> Flask:
     @app.after_request
     def add_security_headers(response):
         origin = request.headers.get("Origin")
-        if origin in allowed_origins:
+        if origin_is_allowed():
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "Content-Type"
@@ -55,15 +69,17 @@ def create_app(model_path: str | None = None) -> Flask:
 
     @app.route("/api/analyze", methods=["OPTIONS"])
     def analyze_options():
-        if request.headers.get("Origin") not in allowed_origins:
+        if not origin_is_allowed():
             return jsonify({"error": "origin is not allowed"}), 403
         return "", 204
 
     @app.post("/api/analyze")
     def analyze() -> tuple[object, int]:
-        if request.headers.get("Origin") not in allowed_origins:
+        if not origin_is_allowed():
             return jsonify({"error": "origin is not allowed"}), 403
-        body = request.get_json(silent=True) or {}
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict):
+            return jsonify({"error": "request body must be a JSON object"}), 400
         if body.get("consent") is not True:
             return jsonify({"error": "explicit camera consent is required"}), 400
         images = body.get("images")
@@ -87,5 +103,19 @@ def create_app(model_path: str | None = None) -> Flask:
     @app.errorhandler(400)
     def bad_request(_error):
         return jsonify({"error": "request was invalid"}), 400
+
+    @app.errorhandler(500)
+    def internal_error(_error):
+        return jsonify({"error": "internal server error"}), 500
+
+    if frontend_root.is_dir():
+
+        @app.get("/")
+        def frontend_index():
+            return send_from_directory(frontend_root, "index.html")
+
+        @app.get("/<path:filename>")
+        def frontend_asset(filename: str):
+            return send_from_directory(frontend_root, filename)
 
     return app

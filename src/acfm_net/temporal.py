@@ -8,6 +8,8 @@ import numpy as np
 
 from .features import FrameFeatures
 
+WINDOW_FRAME_COUNT = 12
+
 
 @dataclass(frozen=True)
 class TemporalFeatures:
@@ -19,6 +21,7 @@ class TemporalFeatures:
     mouth_opening_peak: float
     brightness_mean: float
     brightness_std: float
+    face_detection_rate: float
 
     def vector(self) -> np.ndarray:
         return np.array(
@@ -44,6 +47,10 @@ def aggregate(frames: list[FrameFeatures]) -> TemporalFeatures:
         [frame.brightness for frame in frames],
         dtype=np.float32,
     )
+    face_detected = np.array(
+        [frame.face_detected for frame in frames],
+        dtype=np.float32,
+    )
     longest = 0
     current = 0
     for closed in eyes >= 0.5:
@@ -56,4 +63,5 @@ def aggregate(frames: list[FrameFeatures]) -> TemporalFeatures:
         mouth_opening_peak=float(np.max(mouths)),
         brightness_mean=float(np.mean(brightness)),
         brightness_std=float(np.std(brightness)),
+        face_detection_rate=float(np.mean(face_detected)),
     )

@@ -22,7 +22,16 @@ dist/
 .vscode/
 .idea/
 
+# Local hidden files and directories
+.*
+!.github/
+!.github/**
+!.dockerignore
+*.jsonc
+
 # Data and experiment outputs
 data/
+models/
+*.joblib
 outputs/
 checkpoints/

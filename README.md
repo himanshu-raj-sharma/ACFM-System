@@ -16,7 +16,7 @@ the evidence required before claiming scientific or operational readiness.
 
 ## Requirements
 
-- Python 3.10 or newer
+- Python 3.10 or newer; Python 3.12 is recommended for matching the Docker image
 - OpenCV 4.x (installed automatically by the project dependencies)
 
 ## Installation
@@ -33,6 +33,11 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install --editable ".[dev]"
 ```
+
+On Windows, use the official Python launcher when multiple Python installations
+are present, for example `py -3.15 -m venv .venv`. The Docker image has its own
+Python 3.12 runtime, so the host Python version does not control production
+deployment.
 
 If the environment was installed before the OpenCV version constraint was
 added, reinstall the compatible build:
@@ -59,8 +64,9 @@ data/raw/
     subject-002/frame-001.jpg
 ```
 
-Extract the same temporal feature schema used by the API. All frames for each
-`label/subject_id` pair are aggregated into one window-level row:
+Extract the same temporal feature schema used by the API. Frames are grouped
+into non-overlapping 12-frame windows so training uses the same window size as
+the browser:
 
 ```bash
 python -m acfm_net.extract --input data/raw --output data/features.csv
@@ -69,9 +75,9 @@ python -m acfm_net.extract --input data/raw --output data/features.csv
 Review the generated CSV. Its columns are:
 
 ```text
-eye_closure_rate,longest_eye_closure,mouth_opening_rate,mouth_opening_peak,brightness_mean,brightness_std,label,subject_id
-0.0,0.0,0.0,0.1,0.8,0.02,alert,subject-001
-1.0,0.8,0.7,0.9,0.4,0.10,fatigued,subject-002
+eye_closure_rate,longest_eye_closure,mouth_opening_rate,mouth_opening_peak,brightness_mean,brightness_std,face_detection_rate,label,subject_id
+0.0,0.0,0.0,0.1,0.8,0.02,1.0,alert,subject-001
+1.0,0.8,0.7,0.9,0.4,0.10,1.0,fatigued,subject-002
 ```
 
 The directory labels are project labels and must be mapped to the source
@@ -149,6 +155,19 @@ Open `data\review\index.html` in a browser. Select a label and add notes for
 each image, then use **Download completed labels CSV**. Copy the downloaded
 `alertness_labels.csv` over `data\alertness_labels.csv` after reviewing it.
 
+Prepare the reviewed images into fixed 12-frame windows after restoring the
+original image directory:
+
+```powershell
+python -m acfm_net.prepare_dataset `
+  --labels data\alertness_labels.csv `
+  --images "$HOME\Downloads\ACFM-dataset\extracted" `
+  --output data\raw
+```
+
+The command rejects windows containing mixed alertness labels rather than
+silently creating invalid training data.
+
 ```bash
 python -m acfm_net.training --data data/features.csv `
   --output models/fatigue.joblib `
@@ -157,10 +176,12 @@ python -m acfm_net.training --data data/features.csv `
 ```
 
 The evaluator uses five subject-disjoint folds, not a random frame split, to
-prevent identity leakage. It writes classification metrics, balanced accuracy,
-ROC-AUC, confusion matrix, and fold subject IDs to the metadata report. Review
-these metrics and class-specific recall before deployment; no accuracy target
-is assumed to be safe without domain validation. Keep the dataset,
+prevent identity leakage, and stratifies labels across groups. It requires at
+least five subjects represented in each class. It writes classification
+metrics, balanced accuracy, ROC-AUC, confusion matrix, fold subject IDs, and
+SHA-256 hashes for the dataset and model to the metadata report. Review these
+metrics and class-specific recall before deployment; no accuracy target is
+assumed to be safe without domain validation. Keep the dataset,
 preprocessing, model artifact, metrics, and dataset license together for
 reproducibility.
 
@@ -189,6 +210,44 @@ Open <http://127.0.0.1:3000>, allow camera access, and select **Analyze frame**.
 The frontend captures a short frame window after consent and sends it to
 `POST /api/analyze`;
 the backend also exposes `GET /api/health`.
+
+The frontend API URL is configurable through the `acfm-api-base` meta tag in
+`web/index.html`. When the frontend is served on port 3000, it defaults to the
+backend on the same hostname and port 5000. When the frontend is served by the
+production container, it uses same-origin API requests.
+
+## Run with Docker
+
+Build the image after training a model locally:
+
+```bash
+docker build -t acfm-net .
+docker run --rm -p 5000:5000 \
+  -e ACFM_ALLOWED_ORIGIN=http://127.0.0.1:5000 \
+  -v "$PWD/models:/home/acfm/models:ro" \
+  acfm-net
+```
+
+Open <http://127.0.0.1:5000>. The model directory is mounted at runtime and is
+intentionally not copied into the image. For a public deployment, terminate
+HTTPS at a reverse proxy, set `ACFM_ALLOWED_ORIGIN` to the exact public
+frontend origin, and keep the model volume read-only.
+
+### Permanent Render deployment
+
+The repository includes `render.yaml` for a Docker web service. Because model
+artifacts are excluded from Git, upload the trained model to private HTTPS
+object storage and configure these Render environment variables:
+
+```text
+ACFM_MODEL_URL=https://private-storage.example/fatigue.joblib
+ACFM_MODEL_SHA256=<64-character SHA-256 hash>
+```
+
+The container downloads the model only when it is missing, verifies the hash,
+and then starts the API and frontend. Render provides the public HTTPS URL
+needed for browser camera access. Keep the model URL private and never commit
+the model artifact or its access token.
 
 For a quick package check:
 

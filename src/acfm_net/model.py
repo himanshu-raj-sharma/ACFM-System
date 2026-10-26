@@ -46,9 +46,17 @@ class FatigueModel:
             raise ValueError("model artifact is not a compatible probability model")
         if model.n_features_in_ != 6:
             raise ValueError("model artifact must accept exactly six features")
+        if set(getattr(model, "classes_", ())) != {"alert", "fatigued"}:
+            raise ValueError("model artifact must contain alert and fatigued classes")
         return cls(model=model)
 
     def fit(self, features: np.ndarray, labels: np.ndarray) -> None:
+        if features.ndim != 2 or features.shape[1] != 6:
+            raise ValueError("training requires a matrix with six features")
+        if len(features) != len(labels):
+            raise ValueError("each training row requires one label")
+        if not np.isfinite(features).all():
+            raise ValueError("training features must be finite")
         if len(features) < 4:
             raise ValueError("at least four labelled samples are required")
         if set(np.unique(labels)) != {"alert", "fatigued"}:
@@ -91,3 +99,16 @@ class FatigueModel:
                 "Monitor your alertness and consider a short break.",
             )
         return FatiguePrediction("alert", score, "Alertness looks stable.")
+
+    def predict_labels(self, features: np.ndarray) -> np.ndarray:
+        """Return raw labels for evaluation without exposing the pipeline."""
+        if features.ndim != 2 or features.shape[1] != 6:
+            raise ValueError("evaluation requires a matrix with six features")
+        return self._model.predict(features)
+
+    def predict_fatigued_probability(self, features: np.ndarray) -> np.ndarray:
+        """Return fatigued probabilities for a feature matrix."""
+        if features.ndim != 2 or features.shape[1] != 6:
+            raise ValueError("evaluation requires a matrix with six features")
+        fatigued_index = list(self._model.classes_).index("fatigued")
+        return self._model.predict_proba(features)[:, fatigued_index]

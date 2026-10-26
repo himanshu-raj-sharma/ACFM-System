@@ -26,6 +26,11 @@
 python -m ruff format --check .
 python -m ruff check .
 python -m pytest
+npm test
 node --check .\server.js
 node --check .\web\app.js
+docker build -t acfm-net .
 ```
+
+For hosted deployment, verify the model is supplied through a read-only
+volume or an HTTPS URL with `ACFM_MODEL_SHA256` configured.
