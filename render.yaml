@@ -7,6 +7,6 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: ACFM_MODEL_URL
-        sync: false
+        value: https://raw.githubusercontent.com/himanshu-raj-sharma/ACFM-System/main/models/fatigue.joblib
       - key: ACFM_MODEL_SHA256
-        sync: false
+        value: 299a9dca28777f4d2d8a1d50cf78355d5eeacf0f7f3835f792e85784ed90f227

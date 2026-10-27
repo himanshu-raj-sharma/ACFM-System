@@ -9,10 +9,10 @@ The application refuses to start without a model trained from labelled data.
 This is intentional: an unvalidated synthetic model is not an acceptable
 production substitute.
 
-The repository is complete as a reproducible application and training
-pipeline, but it cannot include a trained model because model artifacts depend
-on the licensed dataset you download locally. The release checklist identifies
-the evidence required before claiming scientific or operational readiness.
+The repository includes the trained model used by the demonstration. Training
+data and extracted features remain local and are excluded from version control.
+The release checklist identifies the evidence required before claiming
+scientific or operational readiness.
 
 ## Requirements
 
@@ -235,19 +235,9 @@ frontend origin, and keep the model volume read-only.
 
 ### Permanent Render deployment
 
-The repository includes `render.yaml` for a Docker web service. Because model
-artifacts are excluded from Git, upload the trained model to private HTTPS
-object storage and configure these Render environment variables:
-
-```text
-ACFM_MODEL_URL=https://private-storage.example/fatigue.joblib
-ACFM_MODEL_SHA256=<64-character SHA-256 hash>
-```
-
-The container downloads the model only when it is missing, verifies the hash,
-and then starts the API and frontend. Render provides the public HTTPS URL
-needed for browser camera access. Keep the model URL private and never commit
-the model artifact or its access token.
+The repository includes `render.yaml` for a Docker web service. It downloads the
+tracked demonstration model over HTTPS and verifies its SHA-256 hash before
+startup. Render provides the public HTTPS URL needed for browser camera access.
 
 For a quick package check:
 

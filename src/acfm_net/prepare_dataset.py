@@ -69,7 +69,7 @@ def prepare_dataset(
         raise ValueError(f"labels CSV is missing columns: {', '.join(missing)}")
 
     by_relative, by_name = _image_index(images_dir)
-    grouped: dict[tuple[str, str], list[tuple[int, dict[str, str], Path]]] = (
+    grouped: dict[tuple[str, str, str], list[tuple[int, dict[str, str], Path]]] = (
         defaultdict(
             list,
         )
@@ -80,22 +80,16 @@ def prepare_dataset(
         if label not in LABELS or not subject:
             raise ValueError("each row must have a valid label and subject_id")
         image = _locate_image(row, images_dir, by_relative, by_name)
-        grouped[(subject, row["split"].strip())].append(
+        split = row["split"].strip()
+        grouped[(subject, split, label)].append(
             (_frame_number(row), row, image),
         )
 
     windows = 0
-    for (subject, split), items in sorted(grouped.items()):
+    for (subject, split, label), items in sorted(grouped.items()):
         items.sort(key=lambda item: (item[0], item[2].name))
         for start in range(0, len(items) - WINDOW_FRAME_COUNT + 1, WINDOW_FRAME_COUNT):
             window = items[start : start + WINDOW_FRAME_COUNT]
-            labels = {item[1]["label"].strip() for item in window}
-            if len(labels) != 1:
-                raise ValueError(
-                    f"mixed labels in {subject}/{split} window starting at "
-                    f"frame {window[0][0]}; label complete windows consistently",
-                )
-            label = labels.pop()
             window_id = (
                 f"{split or 'unsplit'}-window-{start // WINDOW_FRAME_COUNT + 1:04d}"
             )

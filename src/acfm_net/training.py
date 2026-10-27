@@ -208,7 +208,12 @@ def main() -> int:
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--folds", type=int, default=5)
     args = parser.parse_args()
-    print(json.dumps(train(args.data, args.output, args.metadata), indent=2))
+    print(
+        json.dumps(
+            train(args.data, args.output, args.metadata, folds=args.folds),
+            indent=2,
+        ),
+    )
     return 0
 
 
