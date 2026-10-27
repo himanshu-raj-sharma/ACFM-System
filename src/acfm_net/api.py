@@ -32,6 +32,15 @@ def create_app(
         storage_uri="memory://",
     )
 
+    @app.before_request
+    def log_request():
+        logger.info(
+            "Request: %s %s from %s",
+            request.method,
+            request.path,
+            request.remote_addr,
+        )
+
     allowed_origin = os.environ.get(
         "ACFM_ALLOWED_ORIGIN",
         "http://127.0.0.1:3000,http://localhost:3000",
@@ -55,6 +64,7 @@ def create_app(
 
     @app.get("/api/health")
     def health() -> tuple[object, int]:
+        logger.info("Health check requested from %s", request.remote_addr)
         return (
             jsonify(
                 {
@@ -85,7 +95,9 @@ def create_app(
 
     @app.route("/api/analyze", methods=["OPTIONS"])
     def analyze_options():
+        logger.info("CORS preflight check from origin: %s", request.headers.get("Origin"))
         if not origin_is_allowed():
+            logger.warning("Rejected OPTIONS request from origin: %s", request.headers.get("Origin"))
             return jsonify({"error": "origin is not allowed"}), 403
         return "", 204
 
@@ -127,18 +139,22 @@ def create_app(
 
     @app.errorhandler(413)
     def request_too_large(_error):
+        logger.warning("Request too large from %s: %s bytes", request.remote_addr, request.content_length)
         return jsonify({"error": "request exceeds the 7 MB limit"}), 413
 
     @app.errorhandler(429)
     def rate_limit_exceeded(_error):
+        logger.warning("Rate limit exceeded for IP: %s", request.remote_addr)
         return jsonify({"error": "rate limit exceeded. Try again later."}), 429
 
     @app.errorhandler(400)
     def bad_request(_error):
+        logger.warning("Bad request from %s: %s", request.remote_addr, _error)
         return jsonify({"error": "request was invalid"}), 400
 
     @app.errorhandler(500)
     def internal_error(_error):
+        logger.error("Internal server error from %s: %s", request.remote_addr, _error, exc_info=True)
         return jsonify({"error": "internal server error"}), 500
 
     if frontend_root.is_dir():
