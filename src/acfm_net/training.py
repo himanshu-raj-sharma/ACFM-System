@@ -180,8 +180,8 @@ def train(
     evaluation["feature_columns"] = FEATURE_COLUMNS
     evaluation["rows"] = len(features)
     evaluation["subjects"] = sorted(set(groups))
-    evaluation["model_path"] = str(output_path)
-    evaluation["dataset_path"] = str(dataset_path.resolve())
+    evaluation["model_path"] = output_path.name
+    evaluation["dataset_path"] = dataset_path.name
     evaluation["dataset_sha256"] = _sha256(dataset_path)
     evaluation["model_sha256"] = _sha256(output_path)
     evaluation["quality_column"] = QUALITY_COLUMN

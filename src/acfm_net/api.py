@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from .service import MonitoringService
+
+logger = logging.getLogger("acfm-net")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def create_app(
@@ -16,6 +23,15 @@ def create_app(
 ) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 7 * 1024 * 1024
+
+    # Rate limiting: 30 requests per minute per IP for the analyze endpoint
+    limiter = Limiter(
+        key_func=get_remote_address,
+        app=app,
+        default_limits=["200 per day"],
+        storage_uri="memory://",
+    )
+
     allowed_origin = os.environ.get(
         "ACFM_ALLOWED_ORIGIN",
         "http://127.0.0.1:3000,http://localhost:3000",
@@ -74,8 +90,10 @@ def create_app(
         return "", 204
 
     @app.post("/api/analyze")
+    @limiter.limit("30 per minute")
     def analyze() -> tuple[object, int]:
         if not origin_is_allowed():
+            logger.warning("Rejected analyze request from origin: %s", request.headers.get("Origin"))
             return jsonify({"error": "origin is not allowed"}), 403
         body = request.get_json(silent=True)
         if not isinstance(body, dict):
@@ -92,13 +110,28 @@ def create_app(
         ):
             return jsonify({"error": "JSON field 'images' must contain frames"}), 400
         try:
-            return jsonify(service.analyze(images)), 200
+            result = service.analyze(images)
+            logger.info(
+                "Analysis completed: label=%s score=%.3f frames=%d",
+                result["prediction"]["label"],
+                result["prediction"]["score"],
+                result["frames_analyzed"],
+            )
+            return jsonify(result), 200
         except ValueError as error:
+            logger.warning("Analysis failed: %s", error)
             return jsonify({"error": str(error)}), 400
+        except Exception as error:
+            logger.error("Unexpected error during analysis: %s", error, exc_info=True)
+            return jsonify({"error": "internal server error"}), 500
 
     @app.errorhandler(413)
     def request_too_large(_error):
         return jsonify({"error": "request exceeds the 7 MB limit"}), 413
+
+    @app.errorhandler(429)
+    def rate_limit_exceeded(_error):
+        return jsonify({"error": "rate limit exceeded. Try again later."}), 429
 
     @app.errorhandler(400)
     def bad_request(_error):
