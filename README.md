@@ -16,7 +16,7 @@ scientific or operational readiness.
 
 ## Requirements
 
-- Python 3.10 or newer; Python 3.12 is recommended for matching the Docker image
+- Python 3.10 or newer; Python 3.12 is recommended
 - OpenCV 4.x (installed automatically by the project dependencies)
 
 ## Installation
@@ -35,9 +35,7 @@ python -m pip install --editable ".[dev]"
 ```
 
 On Windows, use the official Python launcher when multiple Python installations
-are present, for example `py -3.15 -m venv .venv`. The Docker image has its own
-Python 3.12 runtime, so the host Python version does not control production
-deployment.
+are present, for example `py -3.15 -m venv .venv`.
 
 If the environment was installed before the OpenCV version constraint was
 added, reinstall the compatible build:
@@ -81,7 +79,7 @@ eye_closure_rate,longest_eye_closure,mouth_opening_rate,mouth_opening_peak,brigh
 ```
 
 The directory labels are project labels and must be mapped to the source
-dataset's original labels. Do not silently equate “closed eyes” with
+dataset's original labels. Do not silently equate "closed eyes" with
 clinically validated fatigue. Train and evaluate the model:
 
 ### Edge Impulse dataset conversion
@@ -193,7 +191,7 @@ Terminal 1, backend:
 python app.py
 ```
 
-Terminal 2, frontend:
+Terminal 2, frontend (optional, for hot-reload development):
 
 ```bash
 npm start
@@ -213,36 +211,39 @@ the backend also exposes `GET /api/health`.
 
 The frontend API URL is configurable through the `acfm-api-base` meta tag in
 `web/index.html`. When the frontend is served on port 3000, it defaults to the
-backend on the same hostname and port 5000. When the frontend is served by the
-production container, it uses same-origin API requests.
+backend on the same hostname and port 5000.
 
-## Run with Docker
+## API Endpoints
 
-Build the image after training a model locally:
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Service health check with model status |
+| `/api/analyze` | POST | Analyze 12-frame window for fatigue |
+| `/apidocs` | GET | Swagger/OpenAPI documentation |
+| `/metrics` | GET | Prometheus metrics |
+
+### Example: Analyze Request
 
 ```bash
-docker build -t acfm-net .
-docker run --rm -p 5000:5000 \
-  -e ACFM_ALLOWED_ORIGIN=http://127.0.0.1:5000 \
-  -v "$PWD/models:/home/acfm/models:ro" \
-  acfm-net
+curl -X POST http://127.0.0.1:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:5000" \
+  -d '{
+    "consent": true,
+    "images": ["data:image/jpeg;base64,...", ...]
+  }'
 ```
 
-Open <http://127.0.0.1:5000>. The model directory is mounted at runtime and is
-intentionally not copied into the image. For a public deployment, terminate
-HTTPS at a reverse proxy, set `ACFM_ALLOWED_ORIGIN` to the exact public
-frontend origin, and keep the model volume read-only.
-
-### Permanent Render deployment
-
-The repository includes `render.yaml` for a Docker web service. It downloads the
-tracked demonstration model over HTTPS and verifies its SHA-256 hash before
-startup. Render provides the public HTTPS URL needed for browser camera access.
-
-For a quick package check:
+## Run with Gunicorn (production)
 
 ```bash
-python -m acfm_net --version
+gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 app:app
+```
+
+Or for development with auto-reload:
+
+```bash
+flask run --host=127.0.0.1 --port=5000
 ```
 
 ## Development
@@ -253,10 +254,8 @@ Run the test suite and quality checks locally:
 python -m pytest
 python -m ruff check .
 python -m ruff format --check .
+npm test
 ```
-
-The same checks run automatically in GitHub Actions for pushes and pull
-requests.
 
 ## Readiness and limitations
 
