@@ -2,8 +2,8 @@
 
 import os
 
-from acfm_net.api import create_app
-from acfm_net.artifact import ensure_model
+from acfm_system.api import create_app
+from acfm_system.artifact import ensure_model
 
 model_path = os.environ.get("ACFM_MODEL_PATH", "models/fatigue.joblib")
 try:
@@ -12,7 +12,7 @@ try:
 except (FileNotFoundError, RuntimeError, ValueError) as error:
     raise SystemExit(
         f"ACFM model is unavailable: {error}. "
-        "Train one with python -m acfm_net.training first.",
+        "Train one with python -m acfm_system.training first.",
     ) from error
 
 

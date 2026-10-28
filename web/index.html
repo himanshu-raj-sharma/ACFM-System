@@ -1,31 +1,306 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Set this to an absolute API URL when the frontend is hosted separately. -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="acfm-api-base" content="">
-  <title>ACFM-Net Monitor</title>
+  <title>ACFM-System | Real-Time Monitoring Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <main>
-    <h1>ACFM-Net</h1>
-    <p>Adaptive Cognitive and Fatigue Monitoring System</p>
-    <video id="camera" autoplay playsinline></video>
-    <canvas id="frame" hidden></canvas>
-    <div class="controls">
-      <label><input id="consent" type="checkbox">
-        I consent to temporary camera-frame analysis. Frames are not stored.</label>
-      <div class="controls">
-        <button id="start">Start camera</button>
-        <button id="stop" disabled>Stop camera</button>
-        <button id="analyze" disabled>Analyze window</button>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="14" stroke="#60a5fa" stroke-width="2"/>
+          <path d="M10 16c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#60a5fa"/>
+        </svg>
+        <div class="sidebar-brand">
+          <span class="brand-name">ACFM-System</span>
+          <span class="brand-sub">Fatigue Monitoring</span>
+        </div>
       </div>
     </div>
-    <section id="result" aria-live="polite">Camera is off.</section>
-    <small>Frame-window estimate only. This is not a medical diagnosis or safety guarantee.</small>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="live-monitor">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Live Monitor
+      </a>
+      <a href="#" class="nav-item" data-section="analytics">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Analytics
+      </a>
+      <a href="#" class="nav-item" data-section="history">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+        Session History
+      </a>
+      <a href="#" class="nav-item" data-section="model">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+        Model Performance
+      </a>
+      <a href="#" class="nav-item" data-section="settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4,15a1.65,1.65 0 0 0,.33,1.82l.06,.06a2,2 0 0 1-2.83,2.83l-.06-.06a1.65,1.65 0 0 0-1.82-.33 1.65,1.65 0 0 0-1,1.51V21a2,2 0 0 1-4,0v-.09A1.65,1.65 0 0 0,9,19.4a1.65,1.65 0 0 0-1.82,.33l-.06,.06a2,2 0 0 1-2.83-2.83l.06-.06a1.65,1.65 0 0 0,.33-1.82 1.65,1.65 0 0 0-1.51-1H3a2,2 0 0 1,0-4h.09A1.65,1.65 0 0 0,4.6,9a1.65,1.65 0 0 0-.33-1.82l-.06-.06a2,2 0 0 1,2.83-2.83l.06,.06a1.65,1.65 0 0 0,1.82,.33H9a1.65,1.65 0 0 0,1-1.51V3a2,2 0 0 1,4,0v.09a1.65,1.65 0 0 0,1,1.51 1.65,1.65 0 0 0,1.82-.33l.06-.06a2,2 0 0 1,2.83,2.83l-.06,.06a1.65,1.65 0 0 0-.33,1.82V9a1.65,1.65 0 0 0,1.51,1H21a2,2 0 0 1,0,4h-.09a1.65,1.65 0 0 0-1.51,1z"/></svg>
+        Settings
+      </a>
+      <a href="#" class="nav-item" data-section="about">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        About
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">Live Monitor</h1>
+      </div>
+      <div class="topbar-right">
+        <div class="status-pill online">
+          <span class="pill-dot"></span>
+          System Online
+        </div>
+        <div class="status-pill">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+          WebSocket Connected
+        </div>
+        <div class="clock" id="clock"></div>
+      </div>
+    </header>
+
+    <!-- Content Grid -->
+    <div class="content-grid">
+
+      <!-- Live Camera Feed -->
+      <section class="card camera-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            Live Camera Feed
+          </div>
+          <div class="badge badge-success" id="feedBadge">● Real-time Processing</div>
+        </div>
+        <div class="camera-container">
+          <video id="camera" autoplay playsinline muted></video>
+          <div class="camera-overlay" id="cameraOverlay">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+            <span>Camera Off - Click Start to Begin</span>
+          </div>
+          <div class="rec-badge" id="recBadge">● REC</div>
+          <div class="camera-info">
+            <span id="camFps">FPS: —</span>
+            <span id="camFace">Face: —</span>
+            <span id="camLand">Landmarks: —</span>
+          </div>
+        </div>
+        <div class="camera-controls">
+          <button id="btnStart" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            Start Camera
+          </button>
+          <button id="btnStop" class="btn btn-secondary" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            Stop Camera
+          </button>
+          <button id="btnAnalyze" class="btn btn-accent" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            Analyze Now
+          </button>
+        </div>
+        <label class="consent-label">
+          <input type="checkbox" id="consent">
+          <span>I consent to temporary frame analysis. Frames are not stored.</span>
+        </label>
+      </section>
+
+      <!-- Cognitive State Panel -->
+      <section class="card cognitive-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg>
+            Cognitive State (Live)
+          </div>
+          <span class="badge badge-info">AI Model Active</span>
+        </div>
+
+        <div class="gauge-container">
+          <div class="gauge-wrapper">
+            <canvas id="gaugeCanvas" width="180" height="180"></canvas>
+            <div class="gauge-center">
+              <div class="gauge-value" id="gaugeValue">—</div>
+              <div class="gauge-max">/ 100</div>
+            </div>
+          </div>
+          <div class="gauge-info">
+            <div class="state-label" id="gaugeStateLabel">Waiting for analysis...</div>
+            <div class="state-alert" id="gaugeAlert">Alert: —</div>
+          </div>
+        </div>
+
+        <div class="metrics-bars">
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+              Fatigue Level
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barFatigue" style="width:0%"></div></div>
+            <span class="metric-val" id="valFatigue">—</span>
+            <span class="metric-status" id="statFatigue">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+              Attention Level
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barAttention" style="width:0%"></div></div>
+            <span class="metric-val" id="valAttention">—</span>
+            <span class="metric-status" id="statAttention">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              Eye Closure Ratio
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barEar" style="width:0%"></div></div>
+            <span class="metric-val" id="valEar">—</span>
+            <span class="metric-status" id="statEar">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+              Mouth Opening
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barMouth" style="width:0%"></div></div>
+            <span class="metric-val" id="valMouth">—</span>
+            <span class="metric-status" id="statMouth">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Face Detection
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barFace" style="width:0%"></div></div>
+            <span class="metric-val" id="valFace">—</span>
+            <span class="metric-status" id="statFace">—</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              Brightness
+            </span>
+            <div class="bar-bg"><div class="bar-fill" id="barBright" style="width:0%"></div></div>
+            <span class="metric-val" id="valBright">—</span>
+            <span class="metric-status" id="statBright">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Signal Trends Chart -->
+      <section class="card chart-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            Real-time Signal Trends
+          </div>
+          <select class="time-select">
+            <option>Last 1 Minute</option>
+            <option>Last 5 Minutes</option>
+            <option>Last 15 Minutes</option>
+          </select>
+        </div>
+        <div class="chart-container">
+          <canvas id="trendChart"></canvas>
+        </div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="dot green"></span> CSI</span>
+          <span class="legend-item"><span class="dot red"></span> Fatigue Level</span>
+          <span class="legend-item"><span class="dot orange"></span> EAR</span>
+          <span class="legend-item"><span class="dot blue"></span> Blink Rate</span>
+        </div>
+      </section>
+
+      <!-- System Performance -->
+      <section class="card perf-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            System Performance
+          </div>
+        </div>
+        <div class="perf-grid">
+          <div class="perf-item">
+            <div class="perf-icon fps-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg>
+            </div>
+            <div class="perf-info">
+              <div class="perf-value" id="perfFps">—</div>
+              <div class="perf-label">FPS</div>
+            </div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-icon lat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+            </div>
+            <div class="perf-info">
+              <div class="perf-value" id="perfLatency">—</div>
+              <div class="perf-label">Latency (ms)</div>
+            </div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-icon ws-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+            </div>
+            <div class="perf-info">
+              <div class="perf-value" id="perfWs">—</div>
+              <div class="perf-label">WebSocket</div>
+            </div>
+          </div>
+          <div class="perf-item">
+            <div class="perf-icon model-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+            </div>
+            <div class="perf-info">
+              <div class="perf-value" id="perfModel">—</div>
+              <div class="perf-label">Model Status</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Current Status -->
+      <section class="card status-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
+            Current Status
+          </div>
+        </div>
+        <div class="current-status">
+          <div class="status-dot" id="csDot"></div>
+          <div class="status-info">
+            <div class="status-title" id="csTitle">Monitoring Idle</div>
+            <div class="status-desc">Real-time facial feature extraction and fatigue prediction using ACFM-System</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+      Frame-window estimate only. This is <strong>not a medical diagnosis</strong> or safety guarantee. Always ensure adequate rest before operating vehicles or machinery.
+    </footer>
+
   </main>
+
+  <div class="toast" id="toast"></div>
   <script src="/app.js"></script>
 </body>
 </html>

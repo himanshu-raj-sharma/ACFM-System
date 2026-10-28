@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -14,7 +13,10 @@ from flask_limiter.util import get_remote_address
 from .service import MonitoringService
 
 logger = logging.getLogger("acfm-net")
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 
 
 def create_app(
@@ -95,9 +97,10 @@ def create_app(
 
     @app.route("/api/analyze", methods=["OPTIONS"])
     def analyze_options():
-        logger.info("CORS preflight check from origin: %s", request.headers.get("Origin"))
+        origin = request.headers.get("Origin")
+        logger.info("CORS preflight check from origin: %s", origin)
         if not origin_is_allowed():
-            logger.warning("Rejected OPTIONS request from origin: %s", request.headers.get("Origin"))
+            logger.warning("Rejected OPTIONS request from origin: %s", origin)
             return jsonify({"error": "origin is not allowed"}), 403
         return "", 204
 
@@ -105,7 +108,8 @@ def create_app(
     @limiter.limit("30 per minute")
     def analyze() -> tuple[object, int]:
         if not origin_is_allowed():
-            logger.warning("Rejected analyze request from origin: %s", request.headers.get("Origin"))
+            origin = request.headers.get("Origin")
+            logger.warning("Rejected analyze request from origin: %s", origin)
             return jsonify({"error": "origin is not allowed"}), 403
         body = request.get_json(silent=True)
         if not isinstance(body, dict):
@@ -139,7 +143,11 @@ def create_app(
 
     @app.errorhandler(413)
     def request_too_large(_error):
-        logger.warning("Request too large from %s: %s bytes", request.remote_addr, request.content_length)
+        logger.warning(
+            "Request too large from %s: %s bytes",
+            request.remote_addr,
+            request.content_length,
+        )
         return jsonify({"error": "request exceeds the 7 MB limit"}), 413
 
     @app.errorhandler(429)
@@ -154,7 +162,12 @@ def create_app(
 
     @app.errorhandler(500)
     def internal_error(_error):
-        logger.error("Internal server error from %s: %s", request.remote_addr, _error, exc_info=True)
+        logger.error(
+            "Internal server error from %s: %s",
+            request.remote_addr,
+            _error,
+            exc_info=True,
+        )
         return jsonify({"error": "internal server error"}), 500
 
     if frontend_root.is_dir():

@@ -4,19 +4,19 @@ import cv2
 import numpy as np
 import pytest
 
-from acfm_net import __version__
-from acfm_net.api import create_app
-from acfm_net.artifact import ensure_model
-from acfm_net.dataset_report import summarize_manifest
-from acfm_net.edge_impulse import convert_labels
-from acfm_net.features import FaceFeatureExtractor, FrameFeatures
-from acfm_net.labeling import create_template
-from acfm_net.model import FatigueModel
-from acfm_net.prepare_dataset import prepare_dataset
-from acfm_net.review_export import create_review_page
-from acfm_net.service import MonitoringService
-from acfm_net.temporal import aggregate
-from acfm_net.training import evaluate, read_dataset, train
+from acfm_system import __version__
+from acfm_system.api import create_app
+from acfm_system.artifact import ensure_model
+from acfm_system.dataset_report import summarize_manifest
+from acfm_system.edge_impulse import convert_labels
+from acfm_system.features import FaceFeatureExtractor, FrameFeatures
+from acfm_system.labeling import create_template
+from acfm_system.model import FatigueModel
+from acfm_system.prepare_dataset import prepare_dataset
+from acfm_system.review_export import create_review_page
+from acfm_system.service import MonitoringService
+from acfm_system.temporal import aggregate
+from acfm_system.training import evaluate, read_dataset, train
 
 
 def test_version_is_available() -> None:
@@ -52,7 +52,7 @@ def test_production_app_serves_frontend_assets(tmp_path) -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert b"ACFM-Net" in response.data
+    assert b"ACFM-System" in response.data
 
 
 def test_analyze_requires_an_image(tmp_path) -> None:
