@@ -52,25 +52,6 @@ jobs:
           python -m pip wheel --no-deps . -w dist
           python -c "import glob, zipfile; names = zipfile.ZipFile(sorted(glob.glob('dist/*.whl'))[0]).namelist(); assert any(n.startswith('acfm_system/') for n in names), names"
 
-  docker:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t acfm-net .
-
-      - name: Verify image runs
-        run: |
-          docker run --rm -d --name acfm-test -p 8000:8000 \
-            -e ACFM_MODEL_PATH=/app/models/fatigue.joblib \
-            -e ACFM_ALLOWED_ORIGIN=http://localhost:3000 \
-            acfm-net
-          sleep 10
-          curl -fsS http://127.0.0.1:8000/api/health | grep -q '"status":"ok"'
-          docker stop acfm-test
-
   frontend:
     runs-on: ubuntu-latest
     steps:

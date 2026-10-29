@@ -238,19 +238,7 @@ curl -X POST http://127.0.0.1:5000/api/analyze \
 gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 120 app:app
 ```
 
-For containerized deployment:
-
-```bash
-docker build -t acfm-net .
-docker run --rm -p 8000:8000 -v "$PWD/models:/models:ro" \
-  -e ACFM_ALLOWED_ORIGIN="http://127.0.0.1:3000,http://localhost:3000" \
-  acfm-net
-```
-
-The image reads the model from `/models/fatigue.joblib` (mount it read-only,
-or set `ACFM_MODEL_URL` plus `ACFM_MODEL_SHA256` for a pinned download).
-
-Or for development with auto-reload:
+For development with auto-reload:
 
 ```bash
 flask run --host=127.0.0.1 --port=5000
