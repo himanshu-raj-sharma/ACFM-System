@@ -25,6 +25,10 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.6",
 ]
+observability = [
+    "prometheus_flask_exporter>=0.20,<1",
+    "prometheus_client>=0.20,<1",
+]
 
 [project.scripts]
 acfm-net = "acfm_system.__main__:main"
@@ -35,9 +39,6 @@ packages = ["acfm_system"]
 [tool.pytest.ini_options]
 addopts = ["-ra"]
 testpaths = ["tests"]
-# Import from the repository checkout explicitly; never rely on the accident
-# that "python -m pytest" puts the current working directory on sys.path.
-pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py310"

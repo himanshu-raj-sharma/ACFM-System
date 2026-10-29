@@ -14,6 +14,13 @@ from flask_limiter.util import get_remote_address
 from .service import MonitoringService
 from .temporal import WINDOW_FRAME_COUNT
 
+# Optional: Prometheus metrics exporter. If unavailable, metrics endpoint is skipped.
+try:
+    from prometheus_flask_exporter import PrometheusMetrics
+    _PROMETHEUS_AVAILABLE = True
+except Exception:  # pragma: no cover - optional dependency
+    _PROMETHEUS_AVAILABLE = False
+
 # Logging configuration belongs to the entry point (app.py); this module only
 # obtains its namespaced logger so it never hijacks the host process setup.
 logger = logging.getLogger("acfm-net")
@@ -25,6 +32,11 @@ def create_app(
 ) -> Flask:
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 7 * 1024 * 1024
+
+    # Optional Prometheus metrics at /metrics (if observability extra installed)
+    if _PROMETHEUS_AVAILABLE:
+        PrometheusMetrics(app, defaults_prefix="acfm_net")
+        logger.info("Prometheus metrics enabled at /metrics")
 
     # Rate limiting: per-IP limits apply only to explicitly decorated routes.
     # No global default limits: otherwise the shared daily budget throttles
