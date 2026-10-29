@@ -3,8 +3,8 @@
 import logging
 import os
 
-from acfm_system.api import create_app
-from acfm_system.artifact import ensure_model
+from acfm_net.api import create_app
+from acfm_net.artifact import ensure_model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,7 +20,7 @@ try:
 except (FileNotFoundError, RuntimeError, ValueError, OSError) as error:
     raise SystemExit(
         f"ACFM model is unavailable: {error}. "
-        "Train one with python -m acfm_system.training first.",
+        "Train one with python -m acfm_net.training first.",
     ) from error
 
 

@@ -31,10 +31,10 @@ observability = [
 ]
 
 [project.scripts]
-acfm-net = "acfm_system.__main__:main"
+acfm-net = "acfm_net.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["acfm_system"]
+packages = ["acfm_net"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]

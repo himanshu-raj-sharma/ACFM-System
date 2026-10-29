@@ -50,7 +50,7 @@ jobs:
       - name: Build and verify the wheel contains the package
         run: |
           python -m pip wheel --no-deps . -w dist
-          python -c "import glob, zipfile; names = zipfile.ZipFile(sorted(glob.glob('dist/*.whl'))[0]).namelist(); assert any(n.startswith('acfm_system/') for n in names), names"
+          python -c "import glob, zipfile; names = zipfile.ZipFile(sorted(glob.glob('dist/*.whl'))[0]).namelist(); assert any(n.startswith('acfm_net/') for n in names), names"
 
   frontend:
     runs-on: ubuntu-latest

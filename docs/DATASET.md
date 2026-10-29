@@ -23,7 +23,7 @@ document with records under `files`. Each record includes `name`, `path`,
 `category`, and `boundingBoxes`. Convert it locally with:
 
 ```powershell
-python -m acfm_system.edge_impulse `
+python -m acfm_net.edge_impulse `
   --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\edge_impulse_manifest.csv `
@@ -40,7 +40,7 @@ manifest without an explicit, validated label-mapping protocol.
 Create an auditable summary without loading the images:
 
 ```powershell
-python -m acfm_system.dataset_report `
+python -m acfm_net.dataset_report `
   --manifest data\edge_impulse_manifest.csv `
   --output data\edge_impulse_report.json
 ```
@@ -53,7 +53,7 @@ prevalence. It must not be presented as model accuracy or clinical validation.
 Generate a blank labeling template from the manifest:
 
 ```powershell
-python -m acfm_system.labeling `
+python -m acfm_net.labeling `
   --manifest data\edge_impulse_manifest.csv `
   --output data\alertness_labels.csv
 ```
@@ -67,7 +67,7 @@ both classes before using the grouped fatigue evaluation.
 For efficient local review, generate a browser page:
 
 ```powershell
-python -m acfm_system.review_export `
+python -m acfm_net.review_export `
   --manifest data\edge_impulse_manifest.csv `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\review
@@ -81,7 +81,7 @@ After restoring the source images, prepare the reviewed labels for feature
 extraction:
 
 ```powershell
-python -m acfm_system.prepare_dataset `
+python -m acfm_net.prepare_dataset `
   --labels data\alertness_labels.csv `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\raw
