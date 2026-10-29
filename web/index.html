@@ -7,7 +7,8 @@
   <title>ACFM-System | Real-Time Monitoring Dashboard</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Chart.js is vendored locally: no CDN dependency, no supply-chain risk. -->
+  <script src="/vendor/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -67,9 +68,9 @@
           <span class="pill-dot"></span>
           System Online
         </div>
-        <div class="status-pill">
+        <div class="status-pill" id="apiPill">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-          WebSocket Connected
+          <span id="apiPillText">API: checking&hellip;</span>
         </div>
         <div class="clock" id="clock"></div>
       </div>
@@ -221,8 +222,8 @@
         <div class="chart-legend">
           <span class="legend-item"><span class="dot green"></span> CSI</span>
           <span class="legend-item"><span class="dot red"></span> Fatigue Level</span>
-          <span class="legend-item"><span class="dot orange"></span> EAR</span>
-          <span class="legend-item"><span class="dot blue"></span> Blink Rate</span>
+          <span class="legend-item"><span class="dot orange"></span> Eye Closure</span>
+          <span class="legend-item"><span class="dot blue"></span> Mouth Opening</span>
         </div>
       </section>
 
@@ -259,7 +260,7 @@
             </div>
             <div class="perf-info">
               <div class="perf-value" id="perfWs">—</div>
-              <div class="perf-label">WebSocket</div>
+              <div class="perf-label">API</div>
             </div>
           </div>
           <div class="perf-item">

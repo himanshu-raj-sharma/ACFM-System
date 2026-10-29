@@ -9,31 +9,61 @@ let analyzing = false;
 let isMonitoring = false;
 let captureIntervalId = null;
 let fpsIntervalId = null;
-let frameCount = 0;
-let lastFrameTime = performance.now();
 
-// DOM Elements
-const camera = document.getElementById('camera');
-const btnStart = document.getElementById('btnStart');
-const btnStop = document.getElementById('btnStop');
-const btnAnalyze = document.getElementById('btnAnalyze');
-const consentChk = document.getElementById('consent');
-const cameraOverlay = document.getElementById('cameraOverlay');
-const recBadge = document.querySelector('.rec-badge');
-const clockEl = document.getElementById('clock');
+// DOM element references. Assigned in the browser-only block below so that
+// importing this module from Node (web/app.test.js) does not touch the DOM.
+let camera;
+let btnStart;
+let btnStop;
+let btnAnalyze;
+let consentChk;
+let cameraOverlay;
+let recBadge;
+let clockEl;
 
 // Chart instances
 let trendChart = null;
 let gaugeCtx = null;
 
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  initGauge();
-  initTrendChart();
-  initClock();
-  initSidebarNavigation();
-  updateButtons();
-});
+// Resolve the backend base URL. Priority:
+// 1. the acfm-api-base meta tag in index.html
+// 2. HTTPS pages use same-origin requests (the Flask app serves both sides)
+// 3. otherwise the development backend on the same hostname, port 5000
+function apiBaseUrl(location, doc = document) {
+  if (doc) {
+    const meta = doc.querySelector("meta[name='acfm-api-base']");
+    const configured = meta ? String(meta.getAttribute('content') ?? '').trim() : '';
+    if (configured) {
+      return configured.replace(/\/+$/, '');
+    }
+  }
+  if (location.protocol === 'https:') return '';
+  if (location.port === '5000') return '';
+  return `${location.protocol}//${location.hostname}:5000`;
+}
+
+// Browser-only wiring; skipped when this module is required from Node.
+if (typeof document !== 'undefined') {
+  camera = document.getElementById('camera');
+  btnStart = document.getElementById('btnStart');
+  btnStop = document.getElementById('btnStop');
+  btnAnalyze = document.getElementById('btnAnalyze');
+  consentChk = document.getElementById('consent');
+  cameraOverlay = document.getElementById('cameraOverlay');
+  recBadge = document.getElementById('recBadge');
+  clockEl = document.getElementById('clock');
+
+  // Initialize everything when DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    initGauge();
+    initTrendChart();
+    initClock();
+    initSidebarNavigation();
+    updateButtons();
+    checkApiHealth();
+    setInterval(checkApiHealth, 30000);
+  });
+}
 
 /* ═══════════════════════════════════════════
    GAUGE DRAWING
@@ -152,6 +182,10 @@ function updateStatusDot(active, color) {
 ═══════════════════════════════════════════ */
 
 function initTrendChart() {
+  if (typeof Chart === 'undefined') {
+    showToast('Chart library failed to load - trend chart disabled.', 5000);
+    return;
+  }
   const canvas = document.getElementById('trendChart');
   if (!canvas) return;
 
@@ -183,7 +217,7 @@ function initTrendChart() {
           fill: false,
         },
         {
-          label: 'EAR',
+          label: 'Eye Closure',
           data: [],
           borderColor: '#fb923c',
           backgroundColor: 'transparent',
@@ -193,7 +227,7 @@ function initTrendChart() {
           fill: false,
         },
         {
-          label: 'Blink Rate',
+          label: 'Mouth Opening',
           data: [],
           borderColor: '#60a5fa',
           backgroundColor: 'transparent',
@@ -263,7 +297,7 @@ function addChartDataPoint(data) {
   trendChart.data.datasets[0].data.push(data.csi || 0);
   trendChart.data.datasets[1].data.push(data.fatigue || 0);
   trendChart.data.datasets[2].data.push(data.ear || 0);
-  trendChart.data.datasets[3].data.push(data.blink || 0);
+  trendChart.data.datasets[3].data.push(data.mouth || 0);
 
   // Keep only last N points
   if (trendChart.data.labels.length > CHART_MAX_POINTS) {
@@ -279,28 +313,29 @@ function addChartDataPoint(data) {
 ═══════════════════════════════════════════ */
 
 function updateMetrics(features, predictionScore) {
-  // Fatigue Level
+  // Fatigue Level (higher means more risk)
   updateMetricBar('barFatigue', 'valFatigue', 'statFatigue', predictionScore);
 
-  // Attention Level (inverted - higher is better)
-  const attention = features?.attention_level ?? (1 - predictionScore);
+  // Attention Level (higher is better)
+  const attention = Math.max(0, 1 - predictionScore);
   updateMetricBar('barAttention', 'valAttention', 'statAttention', attention, true);
 
-  // Eye Closure Ratio (EAR)
+  // Eye Closure Ratio (higher means more risk)
   updateMetricBar('barEar', 'valEar', 'statEar', features?.eye_closure_rate);
 
-  // Mouth Opening
+  // Mouth Opening (higher means more risk)
   updateMetricBar('barMouth', 'valMouth', 'statMouth', features?.mouth_opening_rate);
 
-  // Face Detection
-  updateMetricBar('barFace', 'valFace', 'statFace', features?.face_detection_rate);
+  // Face Detection (higher is better)
+  updateMetricBar('barFace', 'valFace', 'statFace', features?.face_detection_rate, true);
 
-  // Brightness
-  const brightness = features?.brightness_mean ? features.brightness_mean / 255 : 0.5;
-  updateMetricBar('barBright', 'valBright', 'statBright', brightness);
+  // Brightness is already normalized to 0..1 by the backend.
+  const brightness = typeof features?.brightness_mean === 'number'
+    ? features.brightness_mean : 0.5;
+  updateMetricBar('barBright', 'valBright', 'statBright', brightness, true);
 }
 
-function updateMetricBar(barId, valId, statId, value, inverted = false) {
+function updateMetricBar(barId, valId, statId, value, goodHigh = false) {
   const bar = document.getElementById(barId);
   const val = document.getElementById(valId);
   const stat = document.getElementById(statId);
@@ -311,25 +346,22 @@ function updateMetricBar(barId, valId, statId, value, inverted = false) {
   const numValue = Number(value) || 0;
   val.textContent = numValue.toFixed(2);
 
-  // Calculate percentage
-  let pct = Math.min(100, Math.max(0, numValue * 100));
-  if (inverted) {
-    pct = 100 - pct;
-  }
-
+  // Bar width always reflects the value itself; goodHigh only changes which
+  // end of the color spectrum is green (for signals where more is better).
+  const pct = Math.min(100, Math.max(0, numValue * 100));
   bar.style.width = pct + '%';
 
   // Update status badge
-  if (pct >= 65) {
-    stat.textContent = 'High';
+  if (goodHigh ? pct < 40 : pct >= 65) {
+    stat.textContent = goodHigh ? 'Low' : 'High';
     stat.style.background = 'rgba(248, 113, 113, 0.15)';
     stat.style.color = '#f87171';
-  } else if (pct >= 40) {
+  } else if (goodHigh ? pct < 65 : pct >= 40) {
     stat.textContent = 'Medium';
     stat.style.background = 'rgba(251, 191, 36, 0.15)';
     stat.style.color = '#fbbf24';
   } else {
-    stat.textContent = 'Low';
+    stat.textContent = goodHigh ? 'High' : 'Low';
     stat.style.background = 'rgba(52, 211, 153, 0.15)';
     stat.style.color = '#34d399';
   }
@@ -421,73 +453,75 @@ function updateButtons() {
    CAMERA CONTROLS
 ═══════════════════════════════════════════ */
 
-btnStart.addEventListener('click', async () => {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    showToast('Camera not available in this browser.');
-    return;
-  }
+if (typeof document !== 'undefined') {
+  btnStart.addEventListener('click', async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      showToast('Camera not available in this browser.');
+      return;
+    }
 
-  // Stop existing stream
-  stream?.getTracks().forEach(t => t.stop());
+    // Stop existing stream
+    stream?.getTracks().forEach(t => t.stop());
 
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: 'user' },
-      audio: false,
-    });
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' },
+        audio: false,
+      });
 
-    camera.srcObject = stream;
+      camera.srcObject = stream;
 
-    await new Promise((resolve, reject) => {
-      camera.onloadedmetadata = resolve;
-      setTimeout(reject, 8000);
-    });
+      await new Promise((resolve, reject) => {
+        camera.onloadedmetadata = resolve;
+        setTimeout(reject, 8000);
+      });
 
-    // UI updates
-    cameraOverlay.classList.add('hidden');
-    recBadge.classList.add('active');
+      // UI updates
+      cameraOverlay.classList.add('hidden');
+      recBadge.classList.add('active');
+      document.getElementById('camFace').textContent = 'Face: —';
+      document.getElementById('camLand').textContent = 'Landmarks: —';
+
+      // Start monitoring
+      startMonitoring();
+      updateButtons();
+      showToast('Camera started - Monitoring active');
+
+    } catch (err) {
+      stream = null;
+      showToast('Camera access denied or unavailable.');
+    }
+  });
+
+  btnStop.addEventListener('click', () => {
+    stopMonitoring();
+
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    camera.srcObject = null;
+
+    cameraOverlay.classList.remove('hidden');
+    recBadge.classList.remove('active');
+
+    document.getElementById('camFps').textContent = 'FPS: —';
     document.getElementById('camFace').textContent = 'Face: —';
     document.getElementById('camLand').textContent = 'Landmarks: —';
+    document.getElementById('perfFps').textContent = '—';
+    document.getElementById('perfLatency').textContent = '—';
 
-    // Start monitoring
-    startMonitoring();
+    updateStatusDot(false, '#505a6e');
     updateButtons();
-    showToast('Camera started - Monitoring active');
+    showToast('Camera stopped');
+  });
 
-  } catch (err) {
-    stream = null;
-    showToast('Camera access denied or unavailable.');
-  }
-});
+  consentChk.addEventListener('change', updateButtons);
+  camera.addEventListener('loadedmetadata', updateButtons);
 
-btnStop.addEventListener('click', () => {
-  stopMonitoring();
-
-  stream?.getTracks().forEach(t => t.stop());
-  stream = null;
-  camera.srcObject = null;
-
-  cameraOverlay.classList.remove('hidden');
-  recBadge.classList.remove('active');
-
-  document.getElementById('camFps').textContent = 'FPS: —';
-  document.getElementById('camFace').textContent = 'Face: —';
-  document.getElementById('camLand').textContent = 'Landmarks: —';
-  document.getElementById('perfFps').textContent = '—';
-  document.getElementById('perfLatency').textContent = '—';
-
-  updateStatusDot(false, '#505a6e');
-  updateButtons();
-  showToast('Camera stopped');
-});
-
-consentChk.addEventListener('change', updateButtons);
-camera.addEventListener('loadedmetadata', updateButtons);
-
-window.addEventListener('beforeunload', () => {
-  stopMonitoring();
-  stream?.getTracks().forEach(t => t.stop());
-});
+  window.addEventListener('beforeunload', () => {
+    stopMonitoring();
+    stream?.getTracks().forEach(t => t.stop());
+  });
+}
 
 /* ═══════════════════════════════════════════
    REAL-TIME MONITORING
@@ -588,7 +622,8 @@ async function captureAndAnalyze() {
     }
 
     // Send to API
-    const resp = await fetch('/api/analyze', {
+    const apiBase = apiBaseUrl(window.location);
+    const resp = await fetch(`${apiBase}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ consent: true, images: frames }),
@@ -597,7 +632,6 @@ async function captureAndAnalyze() {
     const latency = Math.round(performance.now() - startTime);
     document.getElementById('perfLatency').textContent = latency;
     document.getElementById('perfModel').textContent = 'MLP Active';
-    document.getElementById('perfWs').textContent = 'Live';
 
     const data = await resp.json().catch(() => ({}));
 
@@ -613,10 +647,10 @@ async function captureAndAnalyze() {
 
       // Update chart
       addChartDataPoint({
-        csi: prediction.score,
+        csi: 1 - prediction.score,
         fatigue: prediction.score,
         ear: features?.eye_closure_rate ?? 0,
-        blink: features?.blink_rate_normalized ?? 0,
+        mouth: features?.mouth_opening_rate ?? 0,
       });
 
       // Update camera info
@@ -624,47 +658,54 @@ async function captureAndAnalyze() {
       document.getElementById('camLand').textContent = 'Landmarks: ✓';
 
     } else {
-      // Show simulated data for demo
-      showSimulatedData();
+      showAnalysisError(
+        data.error
+          ? `Analysis failed: ${data.error}`
+          : `Unexpected server response (HTTP ${resp.status})`,
+      );
     }
 
   } catch (err) {
     console.error('Analysis error:', err);
-
-    // Show simulated data if API fails
-    showSimulatedData();
+    showAnalysisError('Analysis temporarily unavailable - check backend connectivity.');
   } finally {
     analyzing = false;
     updateButtons();
   }
 }
 
-function showSimulatedData() {
-  // Generate realistic simulated data for demo purposes
-  const score = 30 + Math.random() * 40; // 30-70 range
-  const features = {
-    eye_closure_rate: 0.15 + Math.random() * 0.3,
-    attention_level: 0.6 + Math.random() * 0.3,
-    mouth_opening_rate: 0.05 + Math.random() * 0.1,
-    face_detection_rate: 0.85 + Math.random() * 0.15,
-    brightness_mean: 100 + Math.random() * 80,
-    blink_rate_normalized: 0.1 + Math.random() * 0.2,
-  };
+// Surface backend failures honestly. Never fabricate metrics: a fabricated
+// "healthy" score on a fatigue dashboard is a safety-relevant lie.
+function showAnalysisError(message) {
+  const stateLabel = document.getElementById('gaugeStateLabel');
+  const alertLabel = document.getElementById('gaugeAlert');
+  const csTitle = document.getElementById('csTitle');
+  if (stateLabel) stateLabel.textContent = 'Analysis unavailable';
+  if (alertLabel) {
+    alertLabel.textContent = '! Backend Error';
+    alertLabel.style.color = '#f87171';
+  }
+  if (csTitle) csTitle.textContent = 'Backend Error';
+  updateStatusDot(false, '#505a6e');
 
-  drawGauge(score);
-  updateMetrics(features, score / 100);
+  const perfModel = document.getElementById('perfModel');
+  const perfWs = document.getElementById('perfWs');
+  if (perfModel) perfModel.textContent = '—';
+  if (perfWs) perfWs.textContent = '—';
 
-  addChartDataPoint({
-    csi: score / 100,
-    fatigue: score / 100,
-    ear: features.eye_closure_rate,
-    blink: features.blink_rate_normalized,
-  });
+  showToast(message, 5000);
+}
 
-  document.getElementById('camFace').textContent = 'Face: ✓';
-  document.getElementById('camLand').textContent = 'Landmarks: ✓';
-  document.getElementById('perfModel').textContent = 'MLP Active';
-  document.getElementById('perfWs').textContent = 'Live';
+// Keep the API status pill honest by polling the health endpoint.
+async function checkApiHealth() {
+  const pillText = document.getElementById('apiPillText');
+  if (!pillText) return;
+  try {
+    const resp = await fetch(`${apiBaseUrl(window.location)}/api/health`);
+    pillText.textContent = resp.ok ? 'API Online' : `API Health: ${resp.status}`;
+  } catch {
+    pillText.textContent = 'API Offline';
+  }
 }
 
 function sleep(ms) {
@@ -675,11 +716,13 @@ function sleep(ms) {
    MANUAL ANALYZE BUTTON
 ═══════════════════════════════════════════ */
 
-btnAnalyze.addEventListener('click', () => {
-  if (stream && consentChk.checked) {
-    captureAndAnalyze();
-  }
-});
+if (typeof document !== 'undefined') {
+  btnAnalyze.addEventListener('click', () => {
+    if (stream && consentChk.checked) {
+      captureAndAnalyze();
+    }
+  });
+}
 
 /* ═══════════════════════════════════════════
    TOAST NOTIFICATIONS
@@ -692,4 +735,9 @@ function showToast(msg, duration = 3000) {
   el.classList.add('show');
   clearTimeout(el._timer);
   el._timer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// Export for web/app.test.js when this file is loaded by Node's test runner.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { apiBaseUrl };
 }

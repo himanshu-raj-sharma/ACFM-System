@@ -2,8 +2,12 @@
   "name": "acfm-net-frontend",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
-    "test": "node --test web/app.test.js"
+    "test": "node --test web/app.test.js",
+    "check": "node --check server.js && node --check web/app.js"
   }
 }

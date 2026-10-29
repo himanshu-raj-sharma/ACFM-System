@@ -2,14 +2,24 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
+// Deployment platforms inject PORT (Render, Fly.io, Cloud Run, ...);
+// keep the historical 127.0.0.1:3000 default for local development.
+const host = process.env.HOST || "127.0.0.1";
+const port = Number(process.env.PORT || 3000);
+
 const root = path.join(__dirname, "web");
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
 };
 
-http.createServer((request, response) => {
+const server = http.createServer((request, response) => {
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.writeHead(405, { Allow: "GET, HEAD" });
     response.end("Method not allowed");
@@ -25,7 +35,10 @@ http.createServer((request, response) => {
   }
   const relative = requested === "/" ? "index.html" : requested.replace(/^\/+/, "");
   const file = path.resolve(root, relative);
-  if (file !== root && !file.startsWith(`${root}${path.sep}`)) {
+  // Containment check that is independent of path-separator and drive-letter
+  // casing (unlike a case-sensitive startsWith comparison on Windows).
+  const rel = path.relative(root, file);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
@@ -44,6 +57,19 @@ http.createServer((request, response) => {
     });
     response.end(request.method === "HEAD" ? undefined : data);
   });
-}).listen(3000, "127.0.0.1", () => {
-  console.log("ACFM-Net frontend: http://127.0.0.1:3000");
 });
+
+server.on("error", (error) => {
+  console.error(`ACFM-Net frontend server error: ${error.message}`);
+  process.exitCode = 1;
+});
+
+server.listen(port, host, () => {
+  console.log(`ACFM-Net frontend: http://${host}:${port}`);
+});
+
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+  });
+}
