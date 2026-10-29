@@ -13,10 +13,7 @@ authors = [{ name = "Himanshu Raj" }]
 dependencies = [
     "flask>=3.0,<4",
     "flask-limiter>=3.5,<4",
-    "flasgger>=0.9,<1",
-    "prometheus_flask_exporter>=0.20,<1",
-    "sentry-sdk>=2,<3",
-    "mediapipe>=0.10,<1",
+    "gunicorn>=21,<24",
     "joblib>=1.3,<2",
     "numpy>=1.26,<3",
     "opencv-python-headless>=4.9,<5",
@@ -30,14 +27,17 @@ dev = [
 ]
 
 [project.scripts]
-acfm-net = "acfm_net.__main__:main"
+acfm-net = "acfm_system.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/acfm_net"]
+packages = ["acfm_system"]
 
 [tool.pytest.ini_options]
 addopts = ["-ra"]
 testpaths = ["tests"]
+# Import from the repository checkout explicitly; never rely on the accident
+# that "python -m pytest" puts the current working directory on sys.path.
+pythonpath = ["."]
 
 [tool.ruff]
 target-version = "py310"

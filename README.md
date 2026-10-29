@@ -67,7 +67,7 @@ into non-overlapping 12-frame windows so training uses the same window size as
 the browser:
 
 ```bash
-python -m acfm_net.extract --input data/raw --output data/features.csv
+python -m acfm_system.extract --input data/raw --output data/features.csv
 ```
 
 Review the generated CSV. Its columns are:
@@ -90,7 +90,7 @@ under the `training` and `testing` directories. Convert them to an auditable
 manifest without changing the original labels:
 
 ```powershell
-python -m acfm_net.edge_impulse `
+python -m acfm_system.edge_impulse `
   --labels "$HOME\Downloads\ACFM-dataset\modelling\info.labels" `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\edge_impulse_manifest.csv `
@@ -105,7 +105,7 @@ is still required before running the `alert`/`fatigued` training command.
 Generate a compact report for a presentation or experiment record:
 
 ```powershell
-python -m acfm_net.dataset_report `
+python -m acfm_system.dataset_report `
   --manifest data\edge_impulse_manifest.csv `
   --output data\edge_impulse_report.json
 ```
@@ -120,7 +120,7 @@ It does not calculate fatigue accuracy because this dataset has no direct
 To train the fatigue classifier, create a labeling template:
 
 ```powershell
-python -m acfm_net.labeling `
+python -m acfm_system.labeling `
   --manifest data\edge_impulse_manifest.csv `
   --output data\alertness_labels.csv
 ```
@@ -137,13 +137,13 @@ Do not infer the direct label mechanically from `mata_terpejam` or `menguap`;
 those annotations may be useful evidence for a human labeler but are not
 ground truth. Before training, ensure both `alert` and `fatigued` are present
 for at least five subjects and convert the completed labels into the
-feature CSV required by `acfm_net.training`.
+feature CSV required by `acfm_system.training`.
 
 For visual review, generate a local browser page with the original images and
 annotation counts:
 
 ```powershell
-python -m acfm_net.review_export `
+python -m acfm_system.review_export `
   --manifest data\edge_impulse_manifest.csv `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\review
@@ -157,7 +157,7 @@ Prepare the reviewed images into fixed 12-frame windows after restoring the
 original image directory:
 
 ```powershell
-python -m acfm_net.prepare_dataset `
+python -m acfm_system.prepare_dataset `
   --labels data\alertness_labels.csv `
   --images "$HOME\Downloads\ACFM-dataset\extracted" `
   --output data\raw
@@ -167,7 +167,7 @@ The command rejects windows containing mixed alertness labels rather than
 silently creating invalid training data.
 
 ```bash
-python -m acfm_net.training --data data/features.csv `
+python -m acfm_system.training --data data/features.csv `
   --output models/fatigue.joblib `
   --metadata models/fatigue.metadata.json `
   --folds 5
@@ -219,8 +219,6 @@ backend on the same hostname and port 5000.
 |----------|--------|-------------|
 | `/api/health` | GET | Service health check with model status |
 | `/api/analyze` | POST | Analyze 12-frame window for fatigue |
-| `/apidocs` | GET | Swagger/OpenAPI documentation |
-| `/metrics` | GET | Prometheus metrics |
 
 ### Example: Analyze Request
 
@@ -237,8 +235,20 @@ curl -X POST http://127.0.0.1:5000/api/analyze \
 ## Run with Gunicorn (production)
 
 ```bash
-gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 app:app
+gunicorn --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 120 app:app
 ```
+
+For containerized deployment:
+
+```bash
+docker build -t acfm-net .
+docker run --rm -p 8000:8000 -v "$PWD/models:/models:ro" \
+  -e ACFM_ALLOWED_ORIGIN="http://127.0.0.1:3000,http://localhost:3000" \
+  acfm-net
+```
+
+The image reads the model from `/models/fatigue.joblib` (mount it read-only,
+or set `ACFM_MODEL_URL` plus `ACFM_MODEL_SHA256` for a pinned download).
 
 Or for development with auto-reload:
 
@@ -270,7 +280,7 @@ clinical validity.
 
 ```text
 app.py              Backend entry point
-src/acfm_net/       Features, temporal aggregation, model, extraction, API
+acfm_system/        Features, temporal aggregation, model, extraction, API
 data/               Local-only dataset files (never committed)
 models/             Local-only trained artifacts (never committed)
 web/                Browser frontend
