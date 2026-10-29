@@ -25,16 +25,17 @@ except (FileNotFoundError, RuntimeError, ValueError, OSError) as error:
 
 
 if __name__ == "__main__":
-    raw_port = os.environ.get("ACFM_PORT", "5000")
+    # Render, Heroku, Fly, Railway all inject PORT; ACFM_PORT is our legacy name.
+    raw_port = os.environ.get("PORT") or os.environ.get("ACFM_PORT", "5000")
     try:
         port = int(raw_port)
     except ValueError as error:
         raise SystemExit(
-            f"ACFM_PORT must be an integer, got {raw_port!r}",
+            f"PORT/ACFM_PORT must be an integer, got {raw_port!r}",
         ) from error
 
     app.run(
-        host=os.environ.get("ACFM_HOST", "127.0.0.1"),
+        host=os.environ.get("ACFM_HOST", "0.0.0.0"),
         port=port,
         debug=False,
     )

@@ -1,0 +1,29 @@
+# Render Blueprint — deploy ACFM-Net with one click
+# 1. Push this repo to GitHub
+# 2. In Render dashboard: New > Blueprint > connect repo
+# 3. Set the two required env vars (ACFM_MODEL_URL, ACFM_MODEL_SHA256) in the UI
+# 4. Click "Apply" → live at https://acfm-net.onrender.com (or your chosen name)
+
+services:
+  - type: web
+    name: acfm-net
+    runtime: python
+    plan: free
+    buildCommand: "pip install --no-cache-dir ."
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: ACFM_WEB_DIR
+        value: "web"
+      - key: ACFM_ALLOWED_ORIGIN
+        # Render will replace this with your actual service URL after first deploy.
+        # For first deploy, use a placeholder; then update in Render dashboard.
+        value: "https://acfm-net.onrender.com"
+      # REQUIRED — set these in Render dashboard (Settings > Environment) before deploy:
+      # - key: ACFM_MODEL_URL
+      #   value: "https://your-storage.example.com/fatigue.joblib"
+      # - key: ACFM_MODEL_SHA256
+      #   value: "a1b2c3d4e5f6... (64-char SHA-256 of the .joblib file)"
+    autoDeploy: true
