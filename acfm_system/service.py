@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import threading
 from dataclasses import asdict
 
 import cv2
@@ -24,16 +25,21 @@ class MonitoringService:
     def __init__(self, model_path: str) -> None:
         self._extractor = FaceFeatureExtractor()
         self._model = FatigueModel.load(model_path)
+        # OpenCV Haar cascade instances are not guaranteed thread-safe for
+        # concurrent detectMultiScale calls; serialize frame extraction so
+        # threaded servers (Flask dev, "gunicorn --threads N") stay correct.
+        self._extract_lock = threading.Lock()
 
     def analyze(self, encoded_images: list[str]) -> dict[str, object]:
         if len(encoded_images) != WINDOW_FRAME_COUNT:
             raise ValueError(
                 f"provide exactly {WINDOW_FRAME_COUNT} frames per analysis window",
             )
-        frames = [
-            self._extractor.extract(self._decode_image(encoded_image))
-            for encoded_image in encoded_images
-        ]
+        with self._extract_lock:
+            frames = [
+                self._extractor.extract(self._decode_image(encoded_image))
+                for encoded_image in encoded_images
+            ]
         features = aggregate(frames)
         if features.face_detection_rate < self.MIN_FACE_DETECTION_RATE:
             raise ValueError(

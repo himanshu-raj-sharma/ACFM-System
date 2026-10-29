@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 from joblib import dump, load
@@ -77,7 +80,20 @@ class FatigueModel:
         self._model.fit(features[balanced_indices], labels[balanced_indices])
 
     def save(self, path: str) -> None:
-        dump(self._model, path)
+        """Write the artifact atomically so a crash cannot leave it corrupt."""
+        destination = Path(path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=destination.parent,
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+        )
+        os.close(descriptor)
+        try:
+            dump(self._model, temporary_name)
+            os.replace(temporary_name, destination)
+        finally:
+            Path(temporary_name).unlink(missing_ok=True)
 
     def predict(self, features: np.ndarray) -> FatiguePrediction:
         if features.shape != (6,):

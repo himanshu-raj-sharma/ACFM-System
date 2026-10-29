@@ -65,6 +65,19 @@ def create_review_page(
                 },
             )
 
+    # Escape '</' so a crafted subject_id cannot close the inline script tag.
+    embedded_rows = json.dumps(
+        [
+            {
+                "image_path": row["image_path"],
+                "source_path": row["source_path"],
+                "split": row["split"],
+                "subject_id": row["subject_id"],
+            }
+            for row in rows
+        ],
+    ).replace("</", "<\\/")
+
     cards = []
     for index, row in enumerate(rows, start=1):
         image = images_dir / Path(row["image_path"])
@@ -126,19 +139,7 @@ select, input {{ padding: .45rem; }}
 </header>
 <main class="grid">{"".join(cards)}</main>
 <script>
-const rows = {
-        json.dumps(
-            [
-                {
-                    "image_path": row["image_path"],
-                    "source_path": row["source_path"],
-                    "split": row["split"],
-                    "subject_id": row["subject_id"],
-                }
-                for row in rows
-            ]
-        )
-    };
+const rows = {embedded_rows};
 const cards = [...document.querySelectorAll(".card")];
 function updateStatus() {{
   const done = cards.filter(card =>
@@ -155,8 +156,13 @@ document.querySelector("#download").addEventListener("click", () => {{
     const row = rows[index];
     const values = [row.image_path, row.source_path, row.split,
       row.subject_id, label, notes];
-    lines.push(values.map(value =>
-      `"${{String(value).replaceAll('"', '""')}}"`).join(","));
+    lines.push(values.map(value => {{
+      let text = String(value);
+      if (/^[=+@\t\r]/.test(text)) {{
+        text = `'${{text}}`;
+      }}
+      return `"${{text.replaceAll('"', '""')}}"`;
+    }}).join(","));
   }});
   const blob = new Blob([lines.join("\\n")], {{type: "text/csv"}});
   const link = document.createElement("a");

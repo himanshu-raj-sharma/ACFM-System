@@ -12,11 +12,9 @@ from flask_limiter.util import get_remote_address
 
 from .service import MonitoringService
 
+# Logging configuration belongs to the entry point (app.py); this module only
+# obtains its namespaced logger so it never hijacks the host process setup.
 logger = logging.getLogger("acfm-net")
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 
 
 def create_app(
@@ -26,11 +24,13 @@ def create_app(
     app = Flask(__name__)
     app.config["MAX_CONTENT_LENGTH"] = 7 * 1024 * 1024
 
-    # Rate limiting: 30 requests per minute per IP for the analyze endpoint
+    # Rate limiting: per-IP limits apply only to explicitly decorated routes.
+    # No global default limits: otherwise the shared daily budget throttles
+    # /api/health probes and static asset requests (a restart-loop risk).
+    # Behind a trusted proxy, derive the client IP with ProxyFix instead.
     limiter = Limiter(
         key_func=get_remote_address,
         app=app,
-        default_limits=["200 per day"],
         storage_uri="memory://",
     )
 
@@ -59,10 +59,10 @@ def create_app(
     frontend_root = Path(web_dir or os.environ.get("ACFM_WEB_DIR", "web")).resolve()
 
     def origin_is_allowed() -> bool:
-        origin = request.headers.get("Origin")
-        if origin in allowed_origins:
-            return True
-        return origin == request.host_url.rstrip("/")
+        # Strict allowlist only. This previously also accepted any request
+        # whose Origin matched the Host header, which let clients bypass the
+        # configured origins via host-header injection.
+        return request.headers.get("Origin") in allowed_origins
 
     @app.get("/api/health")
     def health() -> tuple[object, int]:
@@ -81,6 +81,9 @@ def create_app(
             ),
             200,
         )
+
+    # Health probes must never consume (or be throttled by) the API budget.
+    limiter.exempt(health)
 
     @app.after_request
     def add_security_headers(response):
@@ -105,7 +108,7 @@ def create_app(
         return "", 204
 
     @app.post("/api/analyze")
-    @limiter.limit("30 per minute")
+    @limiter.limit("60 per minute")
     def analyze() -> tuple[object, int]:
         if not origin_is_allowed():
             origin = request.headers.get("Origin")
@@ -153,7 +156,9 @@ def create_app(
     @app.errorhandler(429)
     def rate_limit_exceeded(_error):
         logger.warning("Rate limit exceeded for IP: %s", request.remote_addr)
-        return jsonify({"error": "rate limit exceeded. Try again later."}), 429
+        response = jsonify({"error": "rate limit exceeded. Try again later."})
+        response.headers["Retry-After"] = "10"
+        return response, 429
 
     @app.errorhandler(400)
     def bad_request(_error):

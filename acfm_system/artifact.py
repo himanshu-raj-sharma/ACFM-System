@@ -6,10 +6,19 @@ import hashlib
 import os
 import tempfile
 from pathlib import Path
+from urllib import request as urlrequest
 from urllib.parse import urlparse
-from urllib.request import urlopen
 
 MAX_MODEL_BYTES = 250 * 1024 * 1024
+
+
+class _HTTPSOnlyRedirectHandler(urlrequest.HTTPRedirectHandler):
+    """Reject redirects that would downgrade the pinned download to HTTP."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if urlparse(newurl).scheme != "https":
+            raise ValueError("a model URL redirect must stay HTTPS")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def _sha256(path: Path) -> str:
@@ -44,7 +53,8 @@ def ensure_model(path: str) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: str | None = None
     try:
-        with urlopen(model_url, timeout=60) as response:
+        opener = urlrequest.build_opener(_HTTPSOnlyRedirectHandler)
+        with opener.open(model_url, timeout=60) as response:
             with tempfile.NamedTemporaryFile(
                 dir=destination.parent,
                 prefix=f".{destination.name}.",

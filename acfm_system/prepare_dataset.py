@@ -88,6 +88,13 @@ def prepare_dataset(
     windows = 0
     for (subject, split, label), items in sorted(grouped.items()):
         items.sort(key=lambda item: (item[0], item[2].name))
+        leftover = len(items) % WINDOW_FRAME_COUNT
+        if leftover:
+            raise ValueError(
+                f"{subject}/{split or 'unsplit'}/{label} has {leftover} "
+                f"trailing frames outside a complete {WINDOW_FRAME_COUNT}-frame "
+                "window",
+            )
         for start in range(0, len(items) - WINDOW_FRAME_COUNT + 1, WINDOW_FRAME_COUNT):
             window = items[start : start + WINDOW_FRAME_COUNT]
             window_id = (
@@ -95,7 +102,14 @@ def prepare_dataset(
             )
             destination = output_dir / label / subject / window_id
             destination.mkdir(parents=True, exist_ok=True)
+            seen_filenames: set[str] = set()
             for _number, _row, image in window:
+                if image.name in seen_filenames:
+                    raise ValueError(
+                        f"duplicate frame filename in window for {subject}: "
+                        f"{image.name}",
+                    )
+                seen_filenames.add(image.name)
                 shutil.copy2(image, destination / image.name)
             windows += 1
     if not windows:

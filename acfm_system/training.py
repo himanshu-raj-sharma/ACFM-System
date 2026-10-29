@@ -189,7 +189,7 @@ def train(
     evaluation["runtime"] = {
         "python": sys.version.split()[0],
         "platform": platform.platform(),
-        "acfm_system": _package_version("acfm-system"),
+        "acfm_system": _package_version("acfm-net"),
         "numpy": _package_version("numpy"),
         "opencv-python-headless": _package_version("opencv-python-headless"),
         "scikit-learn": _package_version("scikit-learn"),
