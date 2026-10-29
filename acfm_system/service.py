@@ -30,6 +30,11 @@ class MonitoringService:
         # threaded servers (Flask dev, "gunicorn --threads N") stay correct.
         self._extract_lock = threading.Lock()
 
+    @property
+    def ready(self) -> bool:
+        """True when a model artifact is loaded and analysis can run."""
+        return self._model is not None
+
     def analyze(self, encoded_images: list[str]) -> dict[str, object]:
         if len(encoded_images) != WINDOW_FRAME_COUNT:
             raise ValueError(

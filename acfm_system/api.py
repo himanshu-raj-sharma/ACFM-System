@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, g, jsonify, request, send_from_directory
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from .service import MonitoringService
+from .temporal import WINDOW_FRAME_COUNT
 
 # Logging configuration belongs to the entry point (app.py); this module only
 # obtains its namespaced logger so it never hijacks the host process setup.
@@ -36,8 +38,10 @@ def create_app(
 
     @app.before_request
     def log_request():
+        g.request_id = uuid.uuid4().hex[:12]
         logger.info(
-            "Request: %s %s from %s",
+            "Request[%s]: %s %s from %s",
+            g.request_id,
             request.method,
             request.path,
             request.remote_addr,
@@ -50,6 +54,27 @@ def create_app(
     allowed_origins = {
         origin.strip() for origin in allowed_origin.split(",") if origin.strip()
     }
+    # CSP is emitted as a response header (a static meta tag cannot know the
+    # configured API origin). Extra API origins can be appended with
+    # ACFM_CSP_CONNECT_SRC when the API is not same-origin.
+    connect_sources = [
+        "'self'",
+        *os.environ.get("ACFM_CSP_CONNECT_SRC", "").split(),
+    ]
+    content_security_policy = "; ".join(
+        [
+            "default-src 'self'",
+            "base-uri 'none'",
+            "object-src 'none'",
+            "frame-ancestors 'none'",
+            "form-action 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "img-src 'self' data: blob:",
+            f"connect-src {' '.join(connect_sources)}",
+        ],
+    )
     configured_path = model_path or os.environ.get("ACFM_MODEL_PATH")
     if not configured_path:
         raise RuntimeError(
@@ -72,7 +97,8 @@ def create_app(
                 {
                     "status": "ok",
                     "service": "acfm-net",
-                    "model_loaded": True,
+                    "model_loaded": service.ready,
+                    "frames_required": WINDOW_FRAME_COUNT,
                     "privacy": {
                         "frames_persisted": False,
                         "consent_required": True,
@@ -95,7 +121,19 @@ def create_app(
         response.headers["Vary"] = "Origin"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Permissions-Policy"] = (
+            "camera=(self), microphone=(), geolocation=()"
+        )
+        response.headers["Content-Security-Policy"] = content_security_policy
+        response.headers["X-Request-ID"] = getattr(g, "request_id", "-")
+        # API payloads and HTML must never be cached; static assets revalidate
+        # via ETag/Last-Modified (send_file sets those) instead of being
+        # re-downloaded from scratch on every poll.
+        if request.path.startswith("/api/") or response.mimetype == "text/html":
+            response.headers["Cache-Control"] = "no-store"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     @app.route("/api/analyze", methods=["OPTIONS"])
@@ -131,17 +169,23 @@ def create_app(
         try:
             result = service.analyze(images)
             logger.info(
-                "Analysis completed: label=%s score=%.3f frames=%d",
+                "Analysis[%s] completed: label=%s score=%.3f frames=%d",
+                g.request_id,
                 result["prediction"]["label"],
                 result["prediction"]["score"],
                 result["frames_analyzed"],
             )
             return jsonify(result), 200
         except ValueError as error:
-            logger.warning("Analysis failed: %s", error)
+            logger.warning("Analysis[%s] failed: %s", g.request_id, error)
             return jsonify({"error": str(error)}), 400
         except Exception as error:
-            logger.error("Unexpected error during analysis: %s", error, exc_info=True)
+            logger.error(
+                "Analysis[%s] unexpected error: %s",
+                g.request_id,
+                error,
+                exc_info=True,
+            )
             return jsonify({"error": "internal server error"}), 500
 
     @app.errorhandler(413)
@@ -155,7 +199,11 @@ def create_app(
 
     @app.errorhandler(429)
     def rate_limit_exceeded(_error):
-        logger.warning("Rate limit exceeded for IP: %s", request.remote_addr)
+        logger.warning(
+            "Rate limit[%s] exceeded for IP: %s",
+            getattr(g, "request_id", "-"),
+            request.remote_addr,
+        )
         response = jsonify({"error": "rate limit exceeded. Try again later."})
         response.headers["Retry-After"] = "10"
         return response, 429
@@ -168,7 +216,8 @@ def create_app(
     @app.errorhandler(500)
     def internal_error(_error):
         logger.error(
-            "Internal server error from %s: %s",
+            "Internal error[%s] from %s: %s",
+            getattr(g, "request_id", "-"),
             request.remote_addr,
             _error,
             exc_info=True,
